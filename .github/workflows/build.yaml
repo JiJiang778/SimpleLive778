@@ -9,7 +9,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS
-    runs-on: macos-latest
+    runs-on: macos-13
     
     steps:
       - name: Checkout code
@@ -33,7 +33,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '15.4'
           
       - name: Install CocoaPods
         working-directory: simple_live_app/ios
