@@ -32,6 +32,10 @@ jobs:
           flutter doctor -v
           flutter --version
           
+      - name: Clean iOS build
+        working-directory: simple_live_app
+        run: flutter clean
+          
       - name: Install simple_live_core dependencies
         working-directory: simple_live_core
         run: flutter pub get
@@ -40,15 +44,9 @@ jobs:
         working-directory: simple_live_app
         run: flutter pub get
           
-      - name: Clean iOS build
-        working-directory: simple_live_app
-        run: flutter clean
-          
       - name: Install CocoaPods
         working-directory: simple_live_app/ios
-        run: |
-          pod repo update
-          pod install
+        run: pod install
           
       - name: Build iOS IPA
         working-directory: simple_live_app
@@ -97,15 +95,16 @@ jobs:
         run: flutter build windows --release
         
       - name: Create ZIP package
-        working-directory: simple_live_app/build/windows/x64/runner/Release
+        shell: pwsh
         run: |
-          7z a -tzip SimpleLive-Windows.zip *
+          $ReleasePath = "simple_live_app/build/windows/x64/runner/Release"
+          Compress-Archive -Path "$ReleasePath/*" -DestinationPath "SimpleLive-Windows.zip" -Force
           
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: SimpleLive-Windows
-          path: simple_live_app/build/windows/x64/runner/Release/SimpleLive-Windows.zip
+          path: SimpleLive-Windows.zip
           
   release:
     name: Create Release
