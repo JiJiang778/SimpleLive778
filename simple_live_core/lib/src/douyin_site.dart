@@ -291,17 +291,19 @@ class DouyinSite implements LiveSite {
     // 主要是为了获取cookie,用于弹幕websocket连接
     var headers = await getRequestHeaders();
 
-    // 获取在线人数，优先使用display_value
+    // 获取在线人数，优先使用stats.total_user（和首页一致）
     int onlineCount = 0;
     if (roomStatus) {
-      // 尝试从room_view_stats获取人数
-      var roomViewStats = room["room_view_stats"];
-      if (roomViewStats != null) {
-        onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
-      }
-      // 如果display_value为0或异常，尝试从stats获取
-      if (onlineCount == 0 && room["stats"] != null) {
+      // 优先从stats获取真实人数（和首页搜索结果保持一致）
+      if (room["stats"] != null) {
         onlineCount = asT<int?>(room["stats"]["total_user"]) ?? 0;
+      }
+      // 如果stats获取不到，才尝试从room_view_stats获取
+      if (onlineCount == 0) {
+        var roomViewStats = room["room_view_stats"];
+        if (roomViewStats != null) {
+          onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
+        }
       }
     }
 
@@ -364,17 +366,19 @@ class DouyinSite implements LiveSite {
 
     var roomStatus = (asT<int?>(roomData["status"]) ?? 0) == 2;
 
-    // 获取在线人数，优先使用display_value
+    // 获取在线人数，优先使用stats.total_user（和首页一致）
     int onlineCount = 0;
     if (roomStatus) {
-      // 尝试从room_view_stats获取人数
-      var roomViewStats = roomData["room_view_stats"];
-      if (roomViewStats != null) {
-        onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
-      }
-      // 如果display_value为0或异常，尝试从stats获取
-      if (onlineCount == 0 && roomData["stats"] != null) {
+      // 优先从stats获取真实人数（和首页搜索结果保持一致）
+      if (roomData["stats"] != null) {
         onlineCount = asT<int?>(roomData["stats"]["total_user"]) ?? 0;
+      }
+      // 如果stats获取不到，才尝试从room_view_stats获取
+      if (onlineCount == 0) {
+        var roomViewStats = roomData["room_view_stats"];
+        if (roomViewStats != null) {
+          onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
+        }
       }
     }
 
