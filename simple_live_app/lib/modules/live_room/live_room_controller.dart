@@ -1138,6 +1138,12 @@ ${error?.stackTrace}''');
     // 取消之前的定时器
     _onlineRefreshTimer?.cancel();
     
+    // 检查是否启用人数自动刷新
+    if (!AppSettingsController.instance.roomOnlineRefreshEnable.value) {
+      Log.d("人数自动刷新已禁用");
+      return;
+    }
+    
     // 获取用户设置的刷新间隔
     int intervalSeconds = AppSettingsController.instance.roomOnlineRefreshInterval.value;
     
