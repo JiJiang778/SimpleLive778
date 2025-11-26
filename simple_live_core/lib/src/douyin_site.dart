@@ -291,15 +291,27 @@ class DouyinSite implements LiveSite {
     // 主要是为了获取cookie,用于弹幕websocket连接
     var headers = await getRequestHeaders();
 
+    // 获取在线人数，优先使用display_value
+    int onlineCount = 0;
+    if (roomStatus) {
+      // 尝试从room_view_stats获取人数
+      var roomViewStats = room["room_view_stats"];
+      if (roomViewStats != null) {
+        onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
+      }
+      // 如果display_value为0或异常，尝试从stats获取
+      if (onlineCount == 0 && room["stats"] != null) {
+        onlineCount = asT<int?>(room["stats"]["total_user"]) ?? 0;
+      }
+    }
+
     return LiveRoomDetail(
       roomId: webRid,
       title: room["title"].toString(),
       cover: roomStatus ? room["cover"]["url_list"][0].toString() : "",
       userName: owner["nickname"].toString(),
       userAvatar: owner["avatar_thumb"]["url_list"][0].toString(),
-      online: roomStatus
-          ? asT<int?>(room["room_view_stats"]["display_value"]) ?? 0
-          : 0,
+      online: onlineCount,
       status: roomStatus,
       url: "https://live.douyin.com/$webRid",
       introduction: owner["signature"].toString(),
@@ -352,6 +364,20 @@ class DouyinSite implements LiveSite {
 
     var roomStatus = (asT<int?>(roomData["status"]) ?? 0) == 2;
 
+    // 获取在线人数，优先使用display_value
+    int onlineCount = 0;
+    if (roomStatus) {
+      // 尝试从room_view_stats获取人数
+      var roomViewStats = roomData["room_view_stats"];
+      if (roomViewStats != null) {
+        onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
+      }
+      // 如果display_value为0或异常，尝试从stats获取
+      if (onlineCount == 0 && roomData["stats"] != null) {
+        onlineCount = asT<int?>(roomData["stats"]["total_user"]) ?? 0;
+      }
+    }
+
     // 主要是为了获取cookie,用于弹幕websocket连接
     var headers = await getRequestHeaders();
     return LiveRoomDetail(
@@ -364,9 +390,7 @@ class DouyinSite implements LiveSite {
       userAvatar: roomStatus
           ? owner["avatar_thumb"]["url_list"][0].toString()
           : userData["avatar_thumb"]["url_list"][0].toString(),
-      online: roomStatus
-          ? asT<int?>(roomData["room_view_stats"]["display_value"]) ?? 0
-          : 0,
+      online: onlineCount,
       status: roomStatus,
       url: "https://live.douyin.com/$webRid",
       introduction: owner?["signature"]?.toString() ?? "",
