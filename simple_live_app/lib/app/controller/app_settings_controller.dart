@@ -102,10 +102,10 @@ class AppSettingsController extends GetxController {
         .getValue(LocalStorageService.kRoomOnlineRefreshInterval, 5);
 
     roomOnlineExactDisplay.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kRoomOnlineExactDisplay, true);
+        .getValue(LocalStorageService.kRoomOnlineExactDisplay, false);
 
     roomOnlineRefreshEnable.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kRoomOnlineRefreshEnable, true);
+        .getValue(LocalStorageService.kRoomOnlineRefreshEnable, false);
 
     styleColor.value = LocalStorageService.instance
         .getValue(LocalStorageService.kStyleColor, 0xff3498db);
