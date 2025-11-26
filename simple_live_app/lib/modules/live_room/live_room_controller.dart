@@ -1083,7 +1083,26 @@ ${error?.stackTrace}''');
       return;
     }
     
-    // 计算新人数与当前人数的倍率差异
+    // 抖音平台特殊处理：只允许人数下降或小幅上涨（最多2倍）
+    // 因为抖音弹幕推送的可能是"热度"而不是真实在线人数
+    if (site.id == "douyin") {
+      if (newOnline > online.value) {
+        // 人数上涨，检查涨幅
+        double increaseRatio = newOnline / online.value.toDouble();
+        if (increaseRatio > 2.0) {
+          // 涨幅超过2倍，拒绝更新，可能是热度数据
+          Log.d("抖音人数上涨过快，拒绝更新: $newOnline (当前: ${online.value})");
+          return;
+        }
+      }
+      // 人数下降或小幅上涨，允许更新
+      online.value = newOnline;
+      _lastOnlineCount = newOnline;
+      _suspiciousOnlineCount = null;
+      return;
+    }
+    
+    // 其他平台：计算新人数与当前人数的倍率差异
     double ratio = newOnline > online.value 
         ? newOnline / online.value.toDouble()
         : online.value / newOnline.toDouble();
