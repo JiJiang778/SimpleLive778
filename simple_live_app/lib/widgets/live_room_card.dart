@@ -65,7 +65,10 @@ class LiveRoomCard extends StatelessWidget {
                       ),
                       AppStyle.hGap4,
                       Text(
-                        Utils.onlineToString(item.online),
+                        Utils.onlineToString(
+                          item.online,
+                          exactDisplay: AppSettingsController.instance.roomOnlineExactDisplay.value,
+                        ),
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.white,
