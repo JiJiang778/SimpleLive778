@@ -1083,19 +1083,24 @@ ${error?.stackTrace}''');
       return;
     }
     
-    // 抖音平台特殊处理：只允许人数下降或小幅上涨（最多2倍）
-    // 因为抖音弹幕推送的可能是"热度"而不是真实在线人数
+    // 抖音平台特殊处理：过滤异常的"热度"数据
+    // 使用更合理的阈值，避免误杀正常的人数增长
     if (site.id == "douyin") {
       if (newOnline > online.value) {
-        // 人数上涨，检查涨幅
+        // 人数上涨，检查是否为异常值
         double increaseRatio = newOnline / online.value.toDouble();
-        if (increaseRatio > 2.0) {
-          // 涨幅超过2倍，拒绝更新，可能是热度数据
-          Log.d("抖音人数上涨过快，拒绝更新: $newOnline (当前: ${online.value})");
+        int increaseAmount = newOnline - online.value;
+        
+        // 同时满足以下条件才认为是异常值：
+        // 1. 涨幅超过10倍 且
+        // 2. 增量超过50万（防止小基数误判）
+        if (increaseRatio > 10.0 && increaseAmount > 500000) {
+          // 明显的异常热度数据，拒绝更新
+          Log.d("抖音检测到异常热度值，拒绝更新: $newOnline (当前: ${online.value}, 涨幅: ${increaseRatio.toStringAsFixed(1)}倍)");
           return;
         }
       }
-      // 人数下降或小幅上涨，允许更新
+      // 人数下降或合理上涨，允许更新
       online.value = newOnline;
       _lastOnlineCount = newOnline;
       _suspiciousOnlineCount = null;
