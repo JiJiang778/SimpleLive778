@@ -376,7 +376,7 @@ class Utils {
     return int.parse(num);
   }
 
-  static String onlineToString(int num, {bool exactDisplay = true}) {
+  static String onlineToString(int num， {bool exactDisplay = false}) {
     // 如果启用精确显示模式，直接返回完整数字
     if (exactDisplay) {
       // 使用千位分隔符格式化数字，使其更易读（如：12,345）
