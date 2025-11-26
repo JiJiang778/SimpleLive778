@@ -109,6 +109,12 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   // 人数刷新定时器
   Timer? _onlineRefreshTimer;
+  
+  // 上一次获取到的人数（用于防抖动）
+  int _lastOnlineCount = 0;
+  
+  // 可疑的人数值（可能是异常数据）
+  int? _suspiciousOnlineCount;
 
   @override
   void onInit() {
@@ -252,7 +258,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         ),
       ]);
     } else if (msg.type == LiveMessageType.online) {
-      online.value = msg.data;
+      // 使用防抖动更新人数
+      updateOnlineCount(msg.data);
     } else if (msg.type == LiveMessageType.superChat) {
       superChats.add(msg.data);
     }
@@ -323,6 +330,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       // 确认房间关注状态
       followed.value = DBService.instance.getFollowExist("${site.id}_$roomId");
       online.value = detail.value!.online;
+      _lastOnlineCount = detail.value!.online; // 初始化上一次人数值
       liveStatus.value = detail.value!.status || detail.value!.isRecord;
       if (liveStatus.value) {
         getPlayQualites();
@@ -1065,6 +1073,42 @@ ${error?.stackTrace}''');
     }
   }
 
+  // 更新人数（带防抖动逻辑）
+  void updateOnlineCount(int newOnline) {
+    // 如果是首次获取或当前人数为0，直接更新
+    if (_lastOnlineCount == 0 || online.value == 0) {
+      online.value = newOnline;
+      _lastOnlineCount = newOnline;
+      _suspiciousOnlineCount = null;
+      return;
+    }
+    
+    // 计算新人数与当前人数的倍率差异
+    double ratio = newOnline > online.value 
+        ? newOnline / online.value.toDouble()
+        : online.value / newOnline.toDouble();
+    
+    // 如果人数差异过大（超过5倍），可能是异常数据
+    if (ratio > 5.0) {
+      // 如果这个值与上次可疑值相同，说明可能是真实值，更新它
+      if (_suspiciousOnlineCount != null && _suspiciousOnlineCount == newOnline) {
+        online.value = newOnline;
+        _lastOnlineCount = newOnline;
+        _suspiciousOnlineCount = null;
+        Log.d("确认人数更新: $newOnline");
+      } else {
+        // 标记为可疑值，等待下次确认
+        _suspiciousOnlineCount = newOnline;
+        Log.d("检测到可疑人数值: $newOnline，等待下次确认");
+      }
+    } else {
+      // 人数变化合理，直接更新
+      online.value = newOnline;
+      _lastOnlineCount = newOnline;
+      _suspiciousOnlineCount = null;
+    }
+  }
+
   // 启动人数刷新定时器
   void startOnlineRefreshTimer() {
     // 取消之前的定时器
@@ -1088,10 +1132,8 @@ ${error?.stackTrace}''');
       // 获取最新的直播间信息
       var roomDetail = await site.liveSite.getRoomDetail(roomId: roomId);
       
-      // 更新人数显示
-      if (roomDetail.online != online.value) {
-        online.value = roomDetail.online;
-      }
+      // 使用防抖动逻辑更新人数
+      updateOnlineCount(roomDetail.online);
     } catch (e) {
       // 刷新失败不影响观看，静默处理
       Log.d("刷新人数失败: $e");
