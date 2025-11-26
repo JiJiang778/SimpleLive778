@@ -104,6 +104,9 @@ class AppSettingsController extends GetxController {
     roomOnlineExactDisplay.value = LocalStorageService.instance
         .getValue(LocalStorageService.kRoomOnlineExactDisplay, true);
 
+    roomOnlineRefreshEnable.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kRoomOnlineRefreshEnable, true);
+
     styleColor.value = LocalStorageService.instance
         .getValue(LocalStorageService.kStyleColor, 0xff3498db);
 
@@ -463,6 +466,13 @@ class AppSettingsController extends GetxController {
     roomOnlineExactDisplay.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kRoomOnlineExactDisplay, e);
+  }
+
+  var roomOnlineRefreshEnable = true.obs;
+  void setRoomOnlineRefreshEnable(bool e) {
+    roomOnlineRefreshEnable.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kRoomOnlineRefreshEnable, e);
   }
 
   var styleColor = 0xff3498db.obs;
