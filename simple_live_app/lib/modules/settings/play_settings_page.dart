@@ -147,6 +147,17 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                 ),
                 if (Platform.isAndroid) AppStyle.divider,
                 Obx(
+                  () => SettingsSwitch(
+                    title: "启用人数自动刷新",
+                    subtitle: "关闭后可减少资源消耗，(应该可以)避免手机发烫",
+                    value: controller.roomOnlineRefreshEnable.value,
+                    onChanged: (e) {
+                      controller.setRoomOnlineRefreshEnable(e);
+                    },
+                  ),
+                ),
+                AppStyle.divider,
+                Obx(
                   () => SettingsNumber(
                     title: "人数刷新间隔",
                     subtitle: "直播间在线人数自动刷新的间隔时间",
