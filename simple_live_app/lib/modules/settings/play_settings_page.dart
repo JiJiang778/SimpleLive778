@@ -163,6 +163,17 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                 AppStyle.divider,
                 Obx(
                   () => SettingsSwitch(
+                    title: "人数精确显示",
+                    subtitle: "开启后显示完整数字（如12,345），关闭后显示格式化数字（如1.2万）",
+                    value: controller.roomOnlineExactDisplay.value,
+                    onChanged: (e) {
+                      controller.setRoomOnlineExactDisplay(e);
+                    },
+                  ),
+                ),
+                AppStyle.divider,
+                Obx(
+                  () => SettingsSwitch(
                     title: "播放器中显示SC",
                     value: controller.playershowSuperChat.value,
                     onChanged: (e) {
