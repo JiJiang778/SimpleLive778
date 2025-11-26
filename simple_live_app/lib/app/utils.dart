@@ -377,14 +377,14 @@ class Utils {
   }
 
   static String onlineToString(int num, {bool exactDisplay = false}) {
-    // 如果启用精确显示模式，直接返回完整数字
+    // 如果启用精确显示模式, 直接返回完整数字
     if (exactDisplay) {
-      // 使用千位分隔符格式化数字，使其更易读（如：12,345）
+      // 使用千位分隔符格式化数字, 使其更易读(如: 12,345)
       final formatter = NumberFormat('#,###');
       return formatter.format(num);
     }
     
-    // 格式化显示模式：大于等于10000时显示"万"
+    // 格式化显示模式: 大于等于10000时显示"万"
     if (num >= 10000) {
       return "${(num / 10000.0).toStringAsFixed(1)}万";
     }
