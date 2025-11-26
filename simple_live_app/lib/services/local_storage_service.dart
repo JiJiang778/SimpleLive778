@@ -111,6 +111,9 @@ class LocalStorageService extends GetxService {
   /// 人数刷新间隔（秒）
   static const String kRoomOnlineRefreshInterval = "RoomOnlineRefreshInterval";
 
+  /// 人数显示精确度（true=精确显示，false=格式化显示）
+  static const String kRoomOnlineExactDisplay = "RoomOnlineExactDisplay";
+
   /// 播放器音量
   static const String kPlayerVolume = "PlayerVolume";
 
