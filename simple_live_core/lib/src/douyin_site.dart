@@ -291,19 +291,17 @@ class DouyinSite implements LiveSite {
     // 主要是为了获取cookie,用于弹幕websocket连接
     var headers = await getRequestHeaders();
 
-    // 获取在线人数，优先使用stats.total_user（和首页一致）
+    // 获取在线人数，优先使用 display_value（真实人数，和首页一致）
     int onlineCount = 0;
     if (roomStatus) {
-      // 优先从stats获取真实人数（和首页搜索结果保持一致）
-      if (room["stats"] != null) {
-        onlineCount = asT<int?>(room["stats"]["total_user"]) ?? 0;
+      // 优先从 room_view_stats 获取真实人数（和首页展示一致）
+      var roomViewStats = room["room_view_stats"];
+      if (roomViewStats != null) {
+        onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
       }
-      // 如果stats获取不到，才尝试从room_view_stats获取
-      if (onlineCount == 0) {
-        var roomViewStats = room["room_view_stats"];
-        if (roomViewStats != null) {
-          onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
-        }
+      // 如果 display_value 获取不到，才尝试从 stats.total_user 获取
+      if (onlineCount == 0 && room["stats"] != null) {
+        onlineCount = asT<int?>(room["stats"]["total_user"]) ?? 0;
       }
     }
 
@@ -366,19 +364,17 @@ class DouyinSite implements LiveSite {
 
     var roomStatus = (asT<int?>(roomData["status"]) ?? 0) == 2;
 
-    // 获取在线人数，优先使用stats.total_user（和首页一致）
+    // 获取在线人数，优先使用 display_value（真实人数，和首页一致）
     int onlineCount = 0;
     if (roomStatus) {
-      // 优先从stats获取真实人数（和首页搜索结果保持一致）
-      if (roomData["stats"] != null) {
-        onlineCount = asT<int?>(roomData["stats"]["total_user"]) ?? 0;
+      // 优先从 room_view_stats 获取真实人数（和首页展示一致）
+      var roomViewStats = roomData["room_view_stats"];
+      if (roomViewStats != null) {
+        onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
       }
-      // 如果stats获取不到，才尝试从room_view_stats获取
-      if (onlineCount == 0) {
-        var roomViewStats = roomData["room_view_stats"];
-        if (roomViewStats != null) {
-          onlineCount = asT<int?>(roomViewStats["display_value"]) ?? 0;
-        }
+      // 如果 display_value 获取不到，才尝试从 stats.total_user 获取
+      if (onlineCount == 0 && roomData["stats"] != null) {
+        onlineCount = asT<int?>(roomData["stats"]["total_user"]) ?? 0;
       }
     }
 
