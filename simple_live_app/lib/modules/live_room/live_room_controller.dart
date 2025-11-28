@@ -258,6 +258,10 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         ),
       ]);
     } else if (msg.type == LiveMessageType.online) {
+      // 抖音平台：忽略WebSocket的人数更新（热度值），只使用定时刷新的真实人数
+      if (site.id == "douyin") {
+        return;
+      }
       // 使用防抖动更新人数
       updateOnlineCount(msg.data);
     } else if (msg.type == LiveMessageType.superChat) {
@@ -1083,24 +1087,8 @@ ${error?.stackTrace}''');
       return;
     }
     
-    // 抖音平台特殊处理：过滤异常的"热度"数据
-    // 使用更合理的阈值，避免误杀正常的人数增长
+    // 抖音平台：直接更新人数（因为已经在API层面保证了使用真实人数）
     if (site.id == "douyin") {
-      if (newOnline > online.value) {
-        // 人数上涨，检查是否为异常值
-        double increaseRatio = newOnline / online.value.toDouble();
-        int increaseAmount = newOnline - online.value;
-        
-        // 同时满足以下条件才认为是异常值：
-        // 1. 涨幅超过10倍 且
-        // 2. 增量超过50万（防止小基数误判）
-        if (increaseRatio > 10.0 && increaseAmount > 500000) {
-          // 明显的异常热度数据，拒绝更新
-          Log.d("抖音检测到异常热度值，拒绝更新: $newOnline (当前: ${online.value}, 涨幅: ${increaseRatio.toStringAsFixed(1)}倍)");
-          return;
-        }
-      }
-      // 人数下降或合理上涨，允许更新
       online.value = newOnline;
       _lastOnlineCount = newOnline;
       _suspiciousOnlineCount = null;
@@ -1138,7 +1126,20 @@ ${error?.stackTrace}''');
     // 取消之前的定时器
     _onlineRefreshTimer?.cancel();
     
-    // 检查是否启用人数自动刷新
+    // 抖音平台：强制启用人数自动刷新（因为禁用了WebSocket人数更新）
+    if (site.id == "douyin") {
+      int intervalSeconds = AppSettingsController.instance.roomOnlineRefreshInterval.value;
+      Log.d("抖音平台：启动人数自动刷新，间隔 $intervalSeconds 秒");
+      _onlineRefreshTimer = Timer.periodic(
+        Duration(seconds: intervalSeconds),
+        (timer) {
+          refreshOnlineCount();
+        },
+      );
+      return;
+    }
+    
+    // 其他平台：检查是否启用人数自动刷新
     if (!AppSettingsController.instance.roomOnlineRefreshEnable.value) {
       Log.d("人数自动刷新已禁用");
       return;
