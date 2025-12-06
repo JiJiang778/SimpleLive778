@@ -247,9 +247,32 @@ class BiliBiliSite implements LiveSite {
       queryParameters: queryParams,
       header: await getHeader(),
     );
-    List<String> serverHosts = (roomDanmakuResult["data"]["host_list"] as List)
-        .map<String>((e) => e["host"].toString())
-        .toList();
+    List<String> serverHosts = [];
+    if (roomDanmakuResult["data"]["host_list"] != null) {
+      for (var e in roomDanmakuResult["data"]["host_list"] as List) {
+        var host = e["host"].toString();
+        var port = e["wss_port"]?.toString() ?? e["ws_port"]?.toString();
+        
+        // 过滤掉已知有问题的服务器
+        if (host.contains("zj-cn-live-comet") || host.contains("50079")) {
+          continue;
+        }
+        
+        if (port != null && port.isNotEmpty && port != "0" && port != "2245") {
+          // 只使用标准的 WSS 端口
+          if (port == "443" || port == "8443") {
+            serverHosts.add("$host:$port");
+          }
+        } else {
+          serverHosts.add(host);
+        }
+      }
+    }
+    
+    // 如果没有合适的服务器，使用默认的
+    if (serverHosts.isEmpty) {
+      serverHosts.add("broadcastlv.chat.bilibili.com");
+    }
 
     //var buvid = await getBuvid();
     // 从 roomInfo 中提取 live_start_time
