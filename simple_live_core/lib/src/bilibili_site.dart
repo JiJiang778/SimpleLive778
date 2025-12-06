@@ -249,29 +249,37 @@ class BiliBiliSite implements LiveSite {
     );
     List<String> serverHosts = [];
     if (roomDanmakuResult["data"]["host_list"] != null) {
-      for (var e in roomDanmakuResult["data"]["host_list"] as List) {
+      var hostList = roomDanmakuResult["data"]["host_list"] as List;
+      
+      // 根据2025年最新API文档，端口都是标准的：2245 (WSS), 2244 (WS)
+      for (var e in hostList) {
         var host = e["host"].toString();
-        var port = e["wss_port"]?.toString() ?? e["ws_port"]?.toString();
+        var wssPort = e["wss_port"];
         
-        // 过滤掉已知有问题的服务器
-        if (host.contains("zj-cn-live-comet") || host.contains("50079")) {
-          continue;
-        }
-        
-        if (port != null && port.isNotEmpty && port != "0" && port != "2245") {
-          // 只使用标准的 WSS 端口
-          if (port == "443" || port == "8443") {
-            serverHosts.add("$host:$port");
+        // 根据最新文档，WSS端口通常是2245
+        if (wssPort != null) {
+          // 构建完整的WebSocket URL格式：host:port
+          if (wssPort == 2245) {
+            // 标准端口2245
+            serverHosts.add("$host:2245");
+          } else if (wssPort != 0) {
+            // 其他非零端口
+            serverHosts.add("$host:$wssPort");
+          } else {
+            // 如果端口为0，只使用host
+            serverHosts.add(host);
           }
         } else {
-          serverHosts.add(host);
+          // 没有端口信息，使用默认端口
+          serverHosts.add("$host:2245");
         }
       }
     }
     
-    // 如果没有合适的服务器，使用默认的
+    // 确保有默认的服务器
     if (serverHosts.isEmpty) {
-      serverHosts.add("broadcastlv.chat.bilibili.com");
+      // 根据2025年最新文档，使用标准端口2245
+      serverHosts.add("broadcastlv.chat.bilibili.com:2245");
     }
 
     //var buvid = await getBuvid();
@@ -581,6 +589,13 @@ class BiliBiliSite implements LiveSite {
   }
 
   Future<Map<String, String>> getWbiSign(String url) async {
+    // 根据2025年6月27日起的新要求，确保buvid3不为空
+    if (buvid3.isEmpty) {
+      var buvidInfo = await getBuvid();
+      buvid3 = buvidInfo["b_3"] ?? "";
+      buvid4 = buvidInfo["b_4"] ?? "";
+    }
+    
     var (imgKey, subKey) = await getWbiKeys();
 
     // 为请求参数进行 wbi 签名
