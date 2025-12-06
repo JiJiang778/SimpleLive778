@@ -56,17 +56,17 @@ class BiliBiliDanmaku implements LiveDanmaku {
   @override
   Future start(dynamic args) async {
     danmakuArgs = args as BiliBiliDanmakuArgs;
-    // 构建正确的WebSocket URL
+    // 根据2025年最新API文档构建WebSocket URL
     String wsUrl;
     if (args.serverHost.contains(':')) {
       // 如果serverHost已经包含端口，直接使用
       wsUrl = "wss://${args.serverHost}/sub";
     } else {
-      // 否则使用默认的WebSocket端口
-      wsUrl = "wss://${args.serverHost}/sub";
+      // 否则添加默认的标准端口2245
+      wsUrl = "wss://${args.serverHost}:2245/sub";
     }
-    // 设置备用服务器
-    String backupUrl = "wss://broadcastlv.chat.bilibili.com/sub";
+    // 设置备用服务器，使用标准端口2245
+    String backupUrl = "wss://broadcastlv.chat.bilibili.com:2245/sub";
     webScoketUtils = WebScoketUtils(
       url: wsUrl,
       backupUrl: backupUrl,
