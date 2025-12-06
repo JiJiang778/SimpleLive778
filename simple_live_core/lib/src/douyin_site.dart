@@ -528,11 +528,10 @@ class DouyinSite implements LiveSite {
       "device_platform": "web",
       "language": "zh-CN",
       "browser_language": "zh-CN",
-      "browser_name": "Chrome",
+      "browser_name": "Edge",
       "browser_version": "125.0.0.0",
       "web_rid": webRid,
       "msToken": "",
-      "browser_name": "Edge",
     });
     var requestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
 
@@ -709,8 +708,7 @@ class DouyinSite implements LiveSite {
       "round_trip_time": "100",
       "webid": "7382872326016435738",
     });
-    //var requlestUrl = await getAbogusUrl(uri.toString());
-    var requlestUrl = uri.toString();
+    var requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
     var headResp = await HttpClient.instance
         .head('https://live.douyin.com', header: headers);
     var dyCookie = "";
