@@ -905,7 +905,7 @@ class DouyinSite implements LiveSite {
           roomId: itemData["owner"]["web_rid"].toString(),
           avatar: avatarUrl,
           userName: itemData["owner"]["nickname"]?.toString() ?? "",
-          liveStatus: itemData["status"] == 2， // 2表示正在直播
+          liveStatus: itemData["status"] == 2, // 2表示正在直播
         );
         items.add(anchorItem);
       } catch (e) {
