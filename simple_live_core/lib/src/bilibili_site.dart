@@ -250,37 +250,51 @@ class BiliBiliSite implements LiveSite {
     List<String> serverHosts = [];
     if (roomDanmakuResult["data"]["host_list"] != null) {
       var hostList = roomDanmakuResult["data"]["host_list"] as List;
+      print("B站弹幕服务器列表: $hostList");
       
-      // 根据2025年最新API文档，端口都是标准的：2245 (WSS), 2244 (WS)
+      // 根据2025年最新API文档，处理服务器和端口
       for (var e in hostList) {
         var host = e["host"].toString();
         var wssPort = e["wss_port"];
+        var wsPort = e["ws_port"];
         
-        // 根据最新文档，WSS端口通常是2245
-        if (wssPort != null) {
-          // 构建完整的WebSocket URL格式：host:port
+        print("服务器: $host, WSS端口: $wssPort, WS端口: $wsPort");
+        
+        // 优先使用wss_port，标准端口是2245
+        if (wssPort != null && wssPort != 0) {
+          // 如果是标准端口2245，直接使用
           if (wssPort == 2245) {
-            // 标准端口2245
             serverHosts.add("$host:2245");
-          } else if (wssPort != 0) {
-            // 其他非零端口
-            serverHosts.add("$host:$wssPort");
           } else {
-            // 如果端口为0，只使用host
-            serverHosts.add(host);
+            // 非标准端口也添加
+            serverHosts.add("$host:$wssPort");
           }
+        } else if (wsPort != null && wsPort != 0) {
+          // 如果没有wss_port，尝试ws_port (转换为wss)
+          serverHosts.add("$host:$wsPort");
         } else {
-          // 没有端口信息，使用默认端口
+          // 没有端口信息，使用默认端口2245
           serverHosts.add("$host:2245");
         }
+      }
+      
+      // 添加额外的备用服务器
+      if (!serverHosts.any((s) => s.contains("broadcastlv.chat.bilibili.com"))) {
+        serverHosts.add("broadcastlv.chat.bilibili.com:2245");
       }
     }
     
     // 确保有默认的服务器
     if (serverHosts.isEmpty) {
-      // 根据2025年最新文档，使用标准端口2245
-      serverHosts.add("broadcastlv.chat.bilibili.com:2245");
+      // 使用多个备用服务器
+      serverHosts.addAll([
+        "broadcastlv.chat.bilibili.com:2245",
+        "tx-bj-live-comet-02.chat.bilibili.com:2245",
+        "tx-sh-live-comet-02.chat.bilibili.com:2245",
+      ]);
     }
+    
+    print("最终使用的B站弹幕服务器列表: $serverHosts");
 
     //var buvid = await getBuvid();
     // 从 roomInfo 中提取 live_start_time
