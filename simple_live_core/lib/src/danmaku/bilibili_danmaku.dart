@@ -58,18 +58,34 @@ class BiliBiliDanmaku implements LiveDanmaku {
     danmakuArgs = args as BiliBiliDanmakuArgs;
     // 根据2025年最新API文档构建WebSocket URL
     String wsUrl;
-    if (args.serverHost.contains(':')) {
+    print("连接B站弹幕服务器: ${args.serverHost}");
+    
+    // 根据CSDN教程，使用固定的服务器地址和端口
+    if (args.serverHost == "broadcastlv.chat.bilibili.com" || 
+        args.serverHost.isEmpty) {
+      // 使用标准服务器地址
+      wsUrl = "wss://broadcastlv.chat.bilibili.com:2245/sub";
+    } else if (args.serverHost.contains(':')) {
       // 如果serverHost已经包含端口，直接使用
       wsUrl = "wss://${args.serverHost}/sub";
     } else {
       // 否则添加默认的标准端口2245
       wsUrl = "wss://${args.serverHost}:2245/sub";
     }
-    // 设置备用服务器，使用标准端口2245
-    String backupUrl = "wss://broadcastlv.chat.bilibili.com:2245/sub";
+    
+    // 设置多个备用服务器
+    List<String> backupUrls = [
+      "wss://broadcastlv.chat.bilibili.com:2245/sub",
+      "wss://tx-bj-live-comet-02.chat.bilibili.com:2245/sub",
+      "wss://tx-sh-live-comet-02.chat.bilibili.com:2245/sub",
+    ];
+    
+    print("主服务器: $wsUrl");
+    print("备用服务器: ${backupUrls.first}");
+    
     webScoketUtils = WebScoketUtils(
       url: wsUrl,
-      backupUrl: backupUrl,
+      backupUrl: backupUrls.first,
       heartBeatTime: heartbeatTime,
       headers: args.cookie.isEmpty
           ? null
@@ -101,11 +117,12 @@ class BiliBiliDanmaku implements LiveDanmaku {
       json.encode({
         "uid": args.uid,
         "roomid": args.roomId,
-        "protover": 3,
+        "protover": 2,
         "buvid": args.buvid,
         "platform": "web",
         "type": 2,
         "key": args.token,
+        "clientver": "1.14.3",
       }),
       7,
     );
@@ -157,12 +174,13 @@ class BiliBiliDanmaku implements LiveDanmaku {
 
   void decodeMessage(List<int> data) {
     try {
+      var message = Uint8List.fromList(data);
       //协议版本。0为JSON，可以直接解析；1为房间人气值,Body为4位Int32；2为压缩过Buffer，需要解压再处理
-      int protocolVersion = readInt(data, 6, 2);
+      int protocolVersion = readInt(message, 6, 2);
       //操作类型。3=心跳回应，内容为房间人气值；5=通知，弹幕、广播等全部信息；8=进房回应，空
-      int operation = readInt(data, 8, 4);
+      int operation = readInt(message, 8, 4);
       //内容
-      var body = data.skip(16).toList();
+      var body = Uint8List.fromList(data.skip(16).toList());
       if (operation == 3) {
         var online = readInt(body, 0, 4);
 
@@ -176,14 +194,20 @@ class BiliBiliDanmaku implements LiveDanmaku {
           ),
         );
       } else if (operation == 5) {
+        var text = "";
         if (protocolVersion == 2) {
-          body = zlib.decode(body);
+          body = Uint8List.fromList(zlib.decode(body));
         } else if (protocolVersion == 3) {
-          body = brotli.decode(body);
+          // protover 3使用brotli压缩
+          try {
+            body = Uint8List.fromList(brotli.decode(body));
+          } catch (e) {
+            print("Brotli解码失败: $e");
+            return;
+          }
         }
-
-        var text = utf8.decode(body, allowMalformed: true);
-
+        
+        text = utf8.decode(body, allowMalformed: true);
         var group =
             text.split(RegExp(r"[\x00-\x1f]+", unicode: true, multiLine: true));
         for (var item
@@ -250,26 +274,12 @@ class BiliBiliDanmaku implements LiveDanmaku {
     }
   }
 
-  int readInt(List<int> buffer, int start, int len) {
-    var bytes =
-        Uint8List.fromList(buffer.getRange(start, start + len).toList());
-    var byteBuffer = bytes.buffer;
-    var data = ByteData.view(byteBuffer);
-    var result = 0;
-
-    if (len == 1) {
-      result = data.getUint8(0);
+  int readInt(Uint8List buffer, int start, int len) {
+    int result = 0;
+    // 大端模式读取整数
+    for (int i = 0; i < len; i++) {
+      result = result * 256 + buffer[start + i];
     }
-    if (len == 2) {
-      result = data.getInt16(0, Endian.big);
-    }
-    if (len == 4) {
-      result = data.getInt32(0, Endian.big);
-    }
-    if (len == 8) {
-      result = data.getInt64(0, Endian.big);
-    }
-
     return result;
   }
 }
