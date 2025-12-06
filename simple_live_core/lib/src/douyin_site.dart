@@ -686,8 +686,8 @@ class DouyinSite implements LiveSite {
       "offset": ((page - 1) * 10).toString(),
       "count": "10",
       "pc_client_type": "1",
-      "version_code": "170400",
-      "version_name": "17.4.0",
+      "version_code": "190400",
+      "version_name": "19.4.0",
       "cookie_enabled": "true",
       "screen_width": "1980",
       "screen_height": "1080",
@@ -747,16 +747,45 @@ class DouyinSite implements LiveSite {
       throw Exception("抖音直播搜索被限制，请稍后再试");
     }
     var items = <LiveRoomItem>[];
-    for (var item in result["data"] ?? []) {
-      var itemData = json.decode(item["lives"]["rawdata"].toString());
-      var roomItem = LiveRoomItem(
-        roomId: itemData["owner"]["web_rid"].toString(),
-        title: itemData["title"].toString(),
-        cover: itemData["cover"]["url_list"][0].toString(),
-        userName: itemData["owner"]["nickname"].toString(),
-        online: int.tryParse(itemData["stats"]["total_user"].toString()) ?? 0,
-      );
-      items.add(roomItem);
+    
+    // 检查返回数据格式
+    if (result["data"] == null) {
+      return LiveSearchRoomResult(hasMore: false, items: items);
+    }
+    
+    for (var item in result["data"]) {
+      try {
+        // 直接从 item 中获取数据，不需要再 json.decode
+        var lives = item["lives"];
+        if (lives == null || lives["rawdata"] == null) {
+          continue;
+        }
+        
+        // 解析 rawdata
+        var itemData = lives["rawdata"] is String 
+            ? json.decode(lives["rawdata"]) 
+            : lives["rawdata"];
+        
+        // 确保必要字段存在
+        if (itemData["owner"] == null || itemData["owner"]["web_rid"] == null) {
+          continue;
+        }
+        
+        var roomItem = LiveRoomItem(
+          roomId: itemData["owner"]["web_rid"].toString(),
+          title: itemData["title"]?.toString() ?? "",
+          cover: itemData["cover"] != null && itemData["cover"]["url_list"] != null 
+              ? itemData["cover"]["url_list"][0].toString()
+              : "",
+          userName: itemData["owner"]["nickname"]?.toString() ?? "",
+          online: int.tryParse(itemData["stats"]?["total_user"]?.toString() ?? "0") ?? 0,
+        );
+        items.add(roomItem);
+      } catch (e) {
+        // 单个项解析失败不影响其他项
+        print("解析搜索结果项失败: $e");
+        continue;
+      }
     }
     return LiveSearchRoomResult(hasMore: items.length >= 10, items: items);
   }
@@ -764,7 +793,128 @@ class DouyinSite implements LiveSite {
   @override
   Future<LiveSearchAnchorResult> searchAnchors(String keyword,
       {int page = 1}) async {
-    throw Exception("抖音暂不支持搜索主播，请直接搜索直播间");
+    // 使用与searchRooms相同的接口，但提取主播信息
+    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
+    var uri = Uri.parse(serverUrl)
+        .replace(scheme: "https", port: 443, queryParameters: {
+      "device_platform": "webapp",
+      "aid": "6383",
+      "channel": "channel_pc_web",
+      "search_channel": "aweme_live",
+      "keyword": keyword,
+      "search_source": "switch_tab",
+      "query_correct_type": "1",
+      "is_filter_search": "0",
+      "from_group_id": "",
+      "offset": ((page - 1) * 10).toString(),
+      "count": "10",
+      "pc_client_type": "1",
+      "version_code": "190400",
+      "version_name": "19.4.0",
+      "cookie_enabled": "true",
+      "screen_width": "1980",
+      "screen_height": "1080",
+      "browser_language": "zh-CN",
+      "browser_platform": "Win32",
+      "browser_name": "Edge",
+      "browser_version": "142.0.0.0",
+      "browser_online": "true",
+      "engine_name": "Blink",
+      "engine_version": "142.0.0.0",
+      "os_name": "Windows",
+      "os_version": "10",
+      "cpu_core_num": "12",
+      "device_memory": "8",
+      "platform": "PC",
+      "downlink": "10",
+      "effective_type": "4g",
+      "round_trip_time": "100",
+      "webid": "7382872326016435738",
+    });
+    var requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
+    var headResp = await HttpClient.instance
+        .head('https://live.douyin.com', header: headers);
+    var dyCookie = "";
+    headResp.headers["set-cookie"]?.forEach((element) {
+      var cookie = element.split(";")[0];
+      if (cookie.contains("ttwid")) {
+        dyCookie += "$cookie;";
+      }
+      if (cookie.contains("__ac_nonce")) {
+        dyCookie += "$cookie;";
+      }
+    });
+
+    var result = await HttpClient.instance.getJson(
+      requlestUrl,
+      queryParameters: {},
+      header: {
+        "Authority": 'www.douyin.com',
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'cookie': dyCookie,
+        'priority': 'u=1, i',
+        'referer':
+            'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=live',
+        'sec-ch-ua':
+            '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': kDefaultUserAgent,
+      },
+    );
+    if (result == "" || result == 'blocked') {
+      throw Exception("抖音直播搜索被限制，请稍后再试");
+    }
+    var items = <LiveAnchorItem>[];
+    
+    // 检查返回数据格式
+    if (result["data"] == null) {
+      return LiveSearchAnchorResult(hasMore: false, items: items);
+    }
+    
+    for (var item in result["data"]) {
+      try {
+        // 直接从 item 中获取数据，不需要再 json.decode
+        var lives = item["lives"];
+        if (lives == null || lives["rawdata"] == null) {
+          continue;
+        }
+        
+        // 解析 rawdata
+        var itemData = lives["rawdata"] is String 
+            ? json.decode(lives["rawdata"]) 
+            : lives["rawdata"];
+        
+        // 确保必要字段存在
+        if (itemData["owner"] == null || itemData["owner"]["web_rid"] == null) {
+          continue;
+        }
+        
+        var avatarUrl = "";
+        if (itemData["owner"]["avatar_thumb"] != null && 
+            itemData["owner"]["avatar_thumb"]["url_list"] != null &&
+            (itemData["owner"]["avatar_thumb"]["url_list"] as List).isNotEmpty) {
+          avatarUrl = itemData["owner"]["avatar_thumb"]["url_list"][0].toString();
+        }
+        
+        var anchorItem = LiveAnchorItem(
+          roomId: itemData["owner"]["web_rid"].toString(),
+          avatar: avatarUrl,
+          userName: itemData["owner"]["nickname"]?.toString() ?? "",
+          liveStatus: itemData["status"] == 2， // 2表示正在直播
+        );
+        items.add(anchorItem);
+      } catch (e) {
+        // 单个项解析失败不影响其他项
+        print("解析搜索结果项失败: $e");
+        continue;
+      }
+    }
+    return LiveSearchAnchorResult(hasMore: items.length >= 10, items: items);
   }
 
   @override
