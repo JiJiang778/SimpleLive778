@@ -121,7 +121,8 @@ class FollowUserController extends BasePageController<FollowUser> {
     item.pinned = true;
     item.pinnedTime = DateTime.now();
     await DBService.instance.addFollow(item);
-    refreshData();
+    // 只更新本地排序，不重新请求网络
+    FollowService.instance.filterData();
   }
 
   // 取消置顶
@@ -129,7 +130,8 @@ class FollowUserController extends BasePageController<FollowUser> {
     item.pinned = false;
     item.pinnedTime = null;
     await DBService.instance.addFollow(item);
-    refreshData();
+    // 只更新本地排序，不重新请求网络
+    FollowService.instance.filterData();
   }
   // 修改item的标签
   void setItemTag(FollowUser item, FollowUserTag targetTag) {
