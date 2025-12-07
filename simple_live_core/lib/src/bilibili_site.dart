@@ -252,30 +252,16 @@ class BiliBiliSite implements LiveSite {
       var hostList = roomDanmakuResult["data"]["host_list"] as List;
       print("B站弹幕服务器列表: $hostList");
       
-      // 根据2025年最新API文档，处理服务器和端口
+      // 根据2025年最新API文档，强制使用标准端口2245
+      // 忽略API返回的端口信息，因为可能不准确
       for (var e in hostList) {
         var host = e["host"].toString();
         var wssPort = e["wss_port"];
-        var wsPort = e["ws_port"];
         
-        print("服务器: $host, WSS端口: $wssPort, WS端口: $wsPort");
+        print("服务器: $host, API返回WSS端口: $wssPort");
         
-        // 优先使用wss_port，标准端口是2245
-        if (wssPort != null && wssPort != 0) {
-          // 如果是标准端口2245，直接使用
-          if (wssPort == 2245) {
-            serverHosts.add("$host:2245");
-          } else {
-            // 非标准端口也添加
-            serverHosts.add("$host:$wssPort");
-          }
-        } else if (wsPort != null && wsPort != 0) {
-          // 如果没有wss_port，尝试ws_port (转换为wss)
-          serverHosts.add("$host:$wsPort");
-        } else {
-          // 没有端口信息，使用默认端口2245
-          serverHosts.add("$host:2245");
-        }
+        // 强制使用标准端口2245，忽略API返回的端口
+        serverHosts.add("$host:2245");
       }
       
       // 添加额外的备用服务器
