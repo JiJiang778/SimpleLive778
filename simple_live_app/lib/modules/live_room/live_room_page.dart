@@ -14,6 +14,8 @@ import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_app/modules/live_room/player/player_controls.dart';
 import 'package:simple_live_app/services/follow_service.dart';
+import 'package:simple_live_app/services/db_service.dart';
+import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
 import 'package:simple_live_app/widgets/follow_user_item.dart';
 import 'package:simple_live_app/widgets/keep_alive_wrapper.dart';
@@ -751,6 +753,9 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                         item.roomId,
                       );
                     },
+                    onLongPress: () {
+                      showFollowUserOptionsInRoom(item);
+                    },
                   ),
                 );
               },
@@ -915,5 +920,78 @@ class LiveRoomPage extends GetView<LiveRoomController> {
       return "${m.toString().padLeft(2, '0')}分钟${s.toString().padLeft(2, '0')}秒";
     }
     return "${s.toString().padLeft(2, '0')}秒";
+  }
+
+  void showFollowUserOptionsInRoom(FollowUser item) {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 320),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  item.userName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(
+                  item.pinned ? Remix.unpin_line : Remix.pushpin_line,
+                  color: item.pinned ? Colors.orange : null,
+                ),
+                title: Text(item.pinned ? "取消置顶" : "置顶"),
+                onTap: () async {
+                  Get.back();
+                  if (item.pinned) {
+                    item.pinned = false;
+                    item.pinnedTime = null;
+                  } else {
+                    item.pinned = true;
+                    item.pinnedTime = DateTime.now();
+                  }
+                  await DBService.instance.addFollow(item);
+                  await FollowService.instance.loadData();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Remix.dislike_line, color: Colors.red),
+                title: const Text(
+                  "取消关注",
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () async {
+                  Get.back();
+                  var result = await Utils.showAlertDialog(
+                    "确定要取消关注${item.userName}吗?",
+                    title: "取消关注",
+                  );
+                  if (!result) {
+                    return;
+                  }
+                  await DBService.instance.followBox.delete(item.id);
+                  await FollowService.instance.loadData();
+                  // 如果取消关注的是当前正在播放的直播间，更新状态
+                  if (controller.rxSite.value.id == item.siteId &&
+                      controller.rxRoomId.value == item.roomId) {
+                    controller.followed.value = false;
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
