@@ -1064,48 +1064,78 @@ class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
 }
 
 void showFollowUserOptions(FollowUser item, LiveRoomController controller) {
-  Utils.showBottomSheet(
-    title: item.userName,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AppStyle.divider,
-        ListTile(
-          title: Text(item.pinned ? "取消置顶" : "置顶"),
-          leading: Icon(item.pinned ? Remix.unpin_line : Remix.pushpin_line),
-          onTap: () async {
-            Get.back();
-            if (item.pinned) {
-              item.pinned = false;
-              item.pinnedTime = null;
-            } else {
-              item.pinned = true;
-              item.pinnedTime = DateTime.now();
-            }
-            await DBService.instance.addFollow(item);
-            await FollowService.instance.loadData();
-          },
+  Get.dialog(
+    Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 320),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                item.userName,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(
+                item.pinned ? Remix.unpin_line : Remix.pushpin_line,
+                color: item.pinned ? Colors.orange : null,
+              ),
+              title: Text(item.pinned ? "取消置顶" : "置顶"),
+              onTap: () async {
+                HapticFeedback.mediumImpact();
+                Get.back();
+                if (item.pinned) {
+                  item.pinned = false;
+                  item.pinnedTime = null;
+                } else {
+                  item.pinned = true;
+                  item.pinnedTime = DateTime.now();
+                }
+                await DBService.instance.addFollow(item);
+                // 只更新本地排序，不重新请求网络
+                FollowService.instance.filterData();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Remix.dislike_line, color: Colors.red),
+              title: const Text(
+                "取消关注",
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () async {
+                HapticFeedback.mediumImpact();
+                Get.back();
+                var result = await Utils.showAlertDialog(
+                  "确定要取消关注${item.userName}吗?",
+                  title: "取消关注",
+                );
+                if (!result) {
+                  return;
+                }
+                await DBService.instance.followBox.delete(item.id);
+                // 只更新本地排序，不重新请求网络
+                FollowService.instance.filterData();
+                // 如果取消关注的是当前正在播放的直播间，更新状态
+                if (controller.rxSite.value.id == item.siteId &&
+                    controller.rxRoomId.value == item.roomId) {
+                  controller.followed.value = false;
+                }
+              },
+            ),
+          ],
         ),
-        AppStyle.divider,
-        ListTile(
-          title: const Text("取消关注"),
-          leading: const Icon(Remix.dislike_line),
-          onTap: () async {
-            Get.back();
-            var result = await Utils.showAlertDialog("确定要取消关注${item.userName}吗?", title: "取消关注");
-            if (!result) {
-              return;
-            }
-            await DBService.instance.followBox.delete(item.id);
-            await FollowService.instance.loadData();
-            // 如果取消关注的是当前正在播放的直播间，更新状态
-            if (controller.rxSite.value.id == item.siteId && controller.rxRoomId.value == item.roomId) {
-              controller.followed.value = false;
-            }
-          },
-        ),
-      ],
+      ),
     ),
   );
 }
