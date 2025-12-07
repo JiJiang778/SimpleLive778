@@ -56,28 +56,23 @@ class BiliBiliDanmaku implements LiveDanmaku {
   @override
   Future start(dynamic args) async {
     danmakuArgs = args as BiliBiliDanmakuArgs;
-    // 根据2025年最新API文档构建WebSocket URL
+    // 根据blivedm最新代码构建WebSocket URL
     String wsUrl;
     print("连接B站弹幕服务器: ${args.serverHost}");
     
-    // 根据CSDN教程，使用固定的服务器地址和端口
-    if (args.serverHost == "broadcastlv.chat.bilibili.com" || 
-        args.serverHost.isEmpty) {
-      // 使用标准服务器地址
-      wsUrl = "wss://broadcastlv.chat.bilibili.com:2245/sub";
-    } else if (args.serverHost.contains(':')) {
+    if (args.serverHost.contains(':')) {
       // 如果serverHost已经包含端口，直接使用
       wsUrl = "wss://${args.serverHost}/sub";
     } else {
-      // 否则添加默认的标准端口2245
-      wsUrl = "wss://${args.serverHost}:2245/sub";
+      // 否则添加默认端口443
+      wsUrl = "wss://${args.serverHost}:443/sub";
     }
     
-    // 设置多个备用服务器
+    // 设置备用服务器，端口443
     List<String> backupUrls = [
-      "wss://broadcastlv.chat.bilibili.com:2245/sub",
-      "wss://tx-bj-live-comet-02.chat.bilibili.com:2245/sub",
-      "wss://tx-sh-live-comet-02.chat.bilibili.com:2245/sub",
+      "wss://broadcastlv.chat.bilibili.com:443/sub",
+      "wss://tx-sh-live-comet-08.chat.bilibili.com:443/sub",
+      "wss://tx-bj-live-comet-08.chat.bilibili.com:443/sub",
     ];
     
     print("主服务器: $wsUrl");
@@ -117,12 +112,11 @@ class BiliBiliDanmaku implements LiveDanmaku {
       json.encode({
         "uid": args.uid,
         "roomid": args.roomId,
-        "protover": 2,
+        "protover": 3,
         "buvid": args.buvid,
         "platform": "web",
         "type": 2,
         "key": args.token,
-        "clientver": "1.14.3",
       }),
       7,
     );
