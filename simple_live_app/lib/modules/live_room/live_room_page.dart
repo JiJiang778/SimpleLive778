@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:floating/floating.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -952,6 +953,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                 ),
                 title: Text(item.pinned ? "取消置顶" : "置顶"),
                 onTap: () async {
+                  HapticFeedback.mediumImpact();
                   Get.back();
                   if (item.pinned) {
                     item.pinned = false;
@@ -961,7 +963,8 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                     item.pinnedTime = DateTime.now();
                   }
                   await DBService.instance.addFollow(item);
-                  await FollowService.instance.loadData();
+                  // 只更新本地排序，不重新请求网络
+                  FollowService.instance.filterData();
                 },
               ),
               ListTile(
@@ -971,6 +974,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                   style: TextStyle(color: Colors.red),
                 ),
                 onTap: () async {
+                  HapticFeedback.mediumImpact();
                   Get.back();
                   var result = await Utils.showAlertDialog(
                     "确定要取消关注${item.userName}吗?",
