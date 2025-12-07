@@ -18,7 +18,7 @@ dependencies:
   hive: 2.2.3 #持久化存储
   hive_flutter: 1.1.0 #持久化存储
   logger: ^2.0.2 #日志
-  intl: ^0.19.0 #国际化
+  intl: ^0.20.2 #国际化
   qr_flutter: ^4.1.0 #二维码生成
   dynamic_color: 1.6.8 #动态颜色
   path: any
