@@ -252,31 +252,35 @@ class BiliBiliSite implements LiveSite {
       var hostList = roomDanmakuResult["data"]["host_list"] as List;
       print("B站弹幕服务器列表: $hostList");
       
-      // 根据2025年最新API文档，强制使用标准端口2245
-      // 忽略API返回的端口信息，因为可能不准确
+      // 根据blivedm最新代码，使用wss_port（通常是443）
       for (var e in hostList) {
         var host = e["host"].toString();
         var wssPort = e["wss_port"];
         
-        print("服务器: $host, API返回WSS端口: $wssPort");
+        print("服务器: $host, WSS端口: $wssPort");
         
-        // 强制使用标准端口2245，忽略API返回的端口
-        serverHosts.add("$host:2245");
+        // 使用API返回的wss_port，通常是443
+        if (wssPort != null && wssPort != 0) {
+          serverHosts.add("$host:$wssPort");
+        } else {
+          // 如果没有wss_port，使用默认443
+          serverHosts.add("$host:443");
+        }
       }
       
       // 添加额外的备用服务器
       if (!serverHosts.any((s) => s.contains("broadcastlv.chat.bilibili.com"))) {
-        serverHosts.add("broadcastlv.chat.bilibili.com:2245");
+        serverHosts.add("broadcastlv.chat.bilibili.com:443");
       }
     }
     
     // 确保有默认的服务器
     if (serverHosts.isEmpty) {
-      // 使用多个备用服务器
+      // 使用备用服务器，端口443
       serverHosts.addAll([
-        "broadcastlv.chat.bilibili.com:2245",
-        "tx-bj-live-comet-02.chat.bilibili.com:2245",
-        "tx-sh-live-comet-02.chat.bilibili.com:2245",
+        "broadcastlv.chat.bilibili.com:443",
+        "tx-sh-live-comet-08.chat.bilibili.com:443",
+        "tx-bj-live-comet-08.chat.bilibili.com:443",
       ]);
     }
     
