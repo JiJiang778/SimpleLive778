@@ -789,8 +789,11 @@ class DouyinSite implements LiveSite {
         },
       );
       print("抖音搜索房间 - 请求成功");
-    } catch (e) {
-      print("抖音搜索房间 - 发送GET请求失败: $e");
+    } catch (e, stackTrace) {
+      print("抖音搜索房间 - 发送GET请求失败");
+      print("错误类型: ${e.runtimeType}");
+      print("错误详情: $e");
+      print("堆栈信息: $stackTrace");
       throw Exception("抖音搜索请求失败: $e");
     }
     
