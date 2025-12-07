@@ -10657,7 +10657,8 @@ function getMSSDKSignature(msStub, userAgent) {
     flutterJs.eval(jsCode);
     // 执行getABogus函数
     var aBogusResult = flutterJs.eval("getABogus('$query', '$userAgent')");
-    var aBogus = aBogusResult.stringResult;
+    // 处理返回结果，可能是 JsEvalResult 或直接是 String
+    var aBogus = aBogusResult is String ? aBogusResult : aBogusResult.stringResult;
     flutterJs.dispose();
     var newUrl =
         '$url&msToken=${Uri.encodeComponent(msToken)}&a_bogus=${Uri.encodeComponent(aBogus)}';
@@ -10672,13 +10673,14 @@ function getMSSDKSignature(msStub, userAgent) {
     var signatureResult = flutterJs.eval(
       "getMSSDKSignature('$msStub','$defaultUserAgent')",
     );
-    var signature = signatureResult.stringResult;
+    // 处理返回结果，可能是 JsEvalResult 或直接是 String
+    var signature = signatureResult is String ? signatureResult : signatureResult.stringResult;
     // 如果signature中包含-或=，重新生成
     while (signature.contains('-') || signature.contains('=')) {
       signatureResult = flutterJs.eval(
         "getMSSDKSignature('$msStub','$defaultUserAgent')",
       );
-      signature = signatureResult.stringResult;
+      signature = signatureResult is String ? signatureResult : signatureResult.stringResult;
     }
     flutterJs.dispose();
     return signature;
