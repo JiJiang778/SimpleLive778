@@ -138,6 +138,10 @@ Future initServices() async {
 
   Get.put(FollowService());
 
+  // 设置抖音签名函数
+  DouyinSite().setAbogusUrlFunction(DouyinSign.getAbogusUrl);
+  DouyinSite().setSignatureFunction(DouyinSign.getSignature);
+
   initCoreLog();
 }
 
