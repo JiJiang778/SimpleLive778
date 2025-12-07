@@ -250,7 +250,8 @@ class FollowService extends GetxService {
 
   void filterData() {
     // 排序逻辑：置顶 > 直播状态 > 置顶时间(越新越靠前)
-    followList.sort((a, b) {
+    var sortedList = List<FollowUser>.from(followList);
+    sortedList.sort((a, b) {
       // 先比较置顶状态
       if (a.pinned != b.pinned) {
         return a.pinned ? -1 : 1;
@@ -264,6 +265,8 @@ class FollowService extends GetxService {
       // 再比较直播状态
       return b.liveStatus.value.compareTo(a.liveStatus.value);
     });
+    // 使用 assignAll 触发响应式更新
+    followList.assignAll(sortedList);
     liveList.assignAll(followList.where((x) => x.liveStatus.value == 2));
     notLiveList.assignAll(followList.where((x) => x.liveStatus.value == 1));
     _updatedListController.add(0);
