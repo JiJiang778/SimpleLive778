@@ -56,6 +56,19 @@ class BiliBiliDanmaku implements LiveDanmaku {
   @override
   Future start(dynamic args) async {
     danmakuArgs = args as BiliBiliDanmakuArgs;
+    
+    print("=== B站弹幕连接信息 ===");
+    print("房间ID: ${args.roomId}");
+    print("服务器: ${args.serverHost}");
+    print("UID: ${args.uid}");
+    print("Cookie 长度: ${args.cookie.length}");
+    print("SESSDATA 存在: ${args.cookie.contains('SESSDATA')}");
+    
+    // 检查 Cookie 是否包含必要字段
+    if (args.cookie.isNotEmpty && !args.cookie.contains('SESSDATA')) {
+      print("警告: Cookie 中缺少 SESSDATA 字段，可能无法连接弹幕");
+    }
+    
     // 根据blivedm最新代码构建WebSocket URL
     String wsUrl;
     print("连接B站弹幕服务器: ${args.serverHost}");
@@ -101,14 +114,25 @@ class BiliBiliDanmaku implements LiveDanmaku {
         onClose?.call("与服务器断开连接，正在尝试重连");
       },
       onClose: (e) {
-        // 检查是否因为未登录导致连接失败
         var errorMsg = e.toString();
+        print("B站弹幕连接失败: $errorMsg");
+        print("Cookie 状态: ${args.cookie.isNotEmpty ? '已设置' : '未设置'}");
+        print("SESSDATA 状态: ${args.cookie.contains('SESSDATA') ? '存在' : '不存在'}");
+        
+        // 只在真正未登录时提示游客模式
         if (args.cookie.isEmpty || !args.cookie.contains("SESSDATA")) {
           onClose?.call("弹幕连接失败：当前为游客模式，无法查看弹幕。\n请在「我的-账号管理」中登录B站账号。");
-        } else if (errorMsg.contains("HandshakeException") || errorMsg.contains("Connection refused")) {
-          onClose?.call("弹幕连接失败：服务器连接被拒绝。\n请检查网络或尝试重新登录B站账号。");
+        } else if (errorMsg.contains("HandshakeException")) {
+          onClose?.call("弹幕连接失败：TLS/SSL 握手失败。\n请检查网络连接或系统时间是否正确。");
+        } else if (errorMsg.contains("Connection refused")) {
+          onClose?.call("弹幕连接失败：服务器连接被拒绝。\n请检查网络连接。");
+        } else if (errorMsg.contains("SocketException") || errorMsg.contains("Connection closed")) {
+          onClose?.call("弹幕连接失败：网络连接中断。\n请检查网络连接。");
+        } else if (errorMsg.contains("401") || errorMsg.contains("403")) {
+          onClose?.call("弹幕连接失败：身份验证失败。\nCookie 可能已过期，请重新登录B站账号。");
         } else {
-          onClose?.call("服务器连接失败$e");
+          // 其他错误，显示详细信息
+          onClose?.call("弹幕服务器连接失败：$errorMsg");
         }
       },
     );
@@ -116,6 +140,11 @@ class BiliBiliDanmaku implements LiveDanmaku {
   }
 
   void joinRoom(BiliBiliDanmakuArgs args) {
+    print("B站弹幕 - 准备加入房间: ${args.roomId}");
+    print("B站弹幕 - UID: ${args.uid}");
+    print("B站弹幕 - Token: ${args.token.substring(0, 20)}...");
+    print("B站弹幕 - Buvid: ${args.buvid}");
+    
     var joinData = encodeData(
       json.encode({
         "uid": args.uid,
@@ -129,6 +158,7 @@ class BiliBiliDanmaku implements LiveDanmaku {
       7,
     );
     webScoketUtils?.sendMessage(joinData);
+    print("B站弹幕 - 已发送加入房间请求");
   }
 
   @override
