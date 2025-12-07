@@ -167,7 +167,7 @@ class FollowUserPage extends GetView<FollowUserController> {
                         site: site, roomId: item.roomId);
                   },
                   onLongPress: () {
-                    setFollowTagDialog(item);
+                    showFollowUserOptions(item);
                   },
                 );
               },
@@ -390,6 +390,49 @@ class FollowUserPage extends GetView<FollowUserController> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void showFollowUserOptions(FollowUser item) {
+    Utils.showBottomSheet(
+      title: item.userName,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppStyle.divider,
+          ListTile(
+            title: Text(item.pinned ? "取消置顶" : "置顶"),
+            leading: Icon(item.pinned ? Remix.unpin_line : Remix.pushpin_line),
+            onTap: () {
+              Get.back();
+              if (item.pinned) {
+                controller.unpinFollowUser(item);
+              } else {
+                controller.pinFollowUser(item);
+              }
+            },
+          ),
+          AppStyle.divider,
+          ListTile(
+            title: const Text("设置标签"),
+            leading: const Icon(Remix.price_tag_line),
+            onTap: () {
+              Get.back();
+              setFollowTagDialog(item);
+            },
+          ),
+          AppStyle.divider,
+          ListTile(
+            title: const Text("取消关注"),
+            leading: const Icon(Remix.dislike_line),
+            onTap: () {
+              Get.back();
+              controller.removeItem(item);
+            },
+          ),
+        ],
       ),
     );
   }
