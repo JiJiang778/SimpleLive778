@@ -101,7 +101,15 @@ class BiliBiliDanmaku implements LiveDanmaku {
         onClose?.call("与服务器断开连接，正在尝试重连");
       },
       onClose: (e) {
-        onClose?.call("服务器连接失败$e");
+        // 检查是否因为未登录导致连接失败
+        var errorMsg = e.toString();
+        if (args.cookie.isEmpty || !args.cookie.contains("SESSDATA")) {
+          onClose?.call("弹幕连接失败：当前为游客模式，无法查看弹幕。\n请在「我的-账号管理」中登录B站账号。");
+        } else if (errorMsg.contains("HandshakeException") || errorMsg.contains("Connection refused")) {
+          onClose?.call("弹幕连接失败：服务器连接被拒绝。\n请检查网络或尝试重新登录B站账号。");
+        } else {
+          onClose?.call("服务器连接失败$e");
+        }
       },
     );
     webScoketUtils?.connect();
