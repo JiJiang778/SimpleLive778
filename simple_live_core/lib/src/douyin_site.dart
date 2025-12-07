@@ -411,8 +411,21 @@ class DouyinSite implements LiveSite {
   Future<LiveRoomDetail> _getRoomDetailByWebRidHtml(String webRid) async {
     var roomData = await _getRoomDataByHtml(webRid);
     var roomId = roomData["roomStore"]["roomInfo"]["room"]["id_str"].toString();
-    var userUniqueId =
-        roomData["userStore"]["odin"]["user_unique_id"].toString();
+    
+    // 安全获取user_unique_id，防止空指针
+    var userUniqueId = "";
+    try {
+      if (roomData["userStore"] != null && 
+          roomData["userStore"]["odin"] != null &&
+          roomData["userStore"]["odin"]["user_unique_id"] != null) {
+        userUniqueId = roomData["userStore"]["odin"]["user_unique_id"].toString();
+      } else {
+        userUniqueId = generateRandomNumber(12).toString();
+      }
+    } catch (e) {
+      print("获取user_unique_id失败: $e，使用随机值");
+      userUniqueId = generateRandomNumber(12).toString();
+    }
 
     var room = roomData["roomStore"]["roomInfo"]["room"];
     var owner = room["owner"];
@@ -455,8 +468,15 @@ class DouyinSite implements LiveSite {
   Future<String> _getUserUniqueId(String webRid) async {
     try {
       var webInfo = await _getRoomDataByHtml(webRid);
-      return webInfo["userStore"]["odin"]["user_unique_id"].toString();
+      // 安全检查嵌套对象
+      if (webInfo["userStore"] != null && 
+          webInfo["userStore"]["odin"] != null &&
+          webInfo["userStore"]["odin"]["user_unique_id"] != null) {
+        return webInfo["userStore"]["odin"]["user_unique_id"].toString();
+      }
+      return generateRandomNumber(12).toString();
     } catch (e) {
+      print("获取user_unique_id异常: $e");
       return generateRandomNumber(12).toString();
     }
   }
@@ -671,6 +691,7 @@ class DouyinSite implements LiveSite {
   @override
   Future<LiveSearchRoomResult> searchRooms(String keyword,
       {int page = 1}) async {
+    // 抖音搜索不区分房间和主播，统一搜索主播名或标题
     // 使用抖音Web通用搜索流接口
     String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/stream/";
     var uri = Uri.parse(serverUrl)
@@ -871,6 +892,7 @@ class DouyinSite implements LiveSite {
   @override
   Future<LiveSearchAnchorResult> searchAnchors(String keyword,
       {int page = 1}) async {
+    // 抖音搜索主播与搜索房间使用相同接口，返回相同数据
     // 使用抖音Web通用搜索流接口
     String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/stream/";
     var uri = Uri.parse(serverUrl)
