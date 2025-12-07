@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_app/app/app_style.dart';
+import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/modules/search/search_controller.dart';
 import 'package:simple_live_app/modules/search/search_list_view.dart';
@@ -29,25 +30,32 @@ class SearchPage extends GetView<AppSearchController> {
                   onPressed: Get.back,
                   icon: const Icon(Icons.arrow_back),
                 ),
+                // 抖音不显示房间/主播选择器
                 Obx(
-                  () => DropdownButton<int>(
-                    underline: const SizedBox(),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 0,
-                        child: Text("房间"),
-                      ),
-                      DropdownMenuItem(
-                        value: 1,
-                        child: Text("主播"),
-                      ),
-                    ],
-                    value: controller.searchMode.value,
-                    onChanged: (e) {
-                      controller.searchMode.value = e ?? 0;
-                      controller.doSearch();
-                    },
-                  ),
+                  () {
+                    var currentSite = Sites.supportSites[controller.tabController.index];
+                    if (currentSite.id == Constant.kDouyin) {
+                      return const SizedBox.shrink();
+                    }
+                    return DropdownButton<int>(
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 0,
+                          child: Text("房间"),
+                        ),
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text("主播"),
+                        ),
+                      ],
+                      value: controller.searchMode.value,
+                      onChanged: (e) {
+                        controller.searchMode.value = e ?? 0;
+                        controller.doSearch();
+                      },
+                    );
+                  },
                 ),
                 AppStyle.hGap8,
               ],
