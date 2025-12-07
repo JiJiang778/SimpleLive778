@@ -12,6 +12,7 @@ import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_app/modules/settings/danmu_settings_page.dart';
 import 'package:simple_live_app/services/follow_service.dart';
+import 'package:simple_live_app/services/db_service.dart';
 import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
 import 'package:simple_live_app/widgets/follow_user_item.dart';
 import 'package:window_manager/window_manager.dart';
@@ -890,6 +891,9 @@ void showFollowUser(LiveRoomController controller) {
                         item.roomId,
                       );
                     },
+                    onLongPress: () {
+                      showFollowUserOptions(item, controller);
+                    },
                   ),
                 );
               },
@@ -1056,4 +1060,51 @@ class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
       ],
     );
   }
+}
+
+void showFollowUserOptions(FollowUser item, LiveRoomController controller) {
+  Utils.showBottomSheet(
+    title: item.userName,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppStyle.divider,
+        ListTile(
+          title: Text(item.pinned ? "取消置顶" : "置顶"),
+          leading: Icon(item.pinned ? Remix.unpin_line : Remix.pushpin_line),
+          onTap: () async {
+            Get.back();
+            if (item.pinned) {
+              item.pinned = false;
+              item.pinnedTime = null;
+            } else {
+              item.pinned = true;
+              item.pinnedTime = DateTime.now();
+            }
+            await DBService.instance.addFollow(item);
+            await FollowService.instance.loadData();
+          },
+        ),
+        AppStyle.divider,
+        ListTile(
+          title: const Text("取消关注"),
+          leading: const Icon(Remix.dislike_line),
+          onTap: () async {
+            Get.back();
+            var result = await Utils.showAlertDialog("确定要取消关注${item.userName}吗?", title: "取消关注");
+            if (!result) {
+              return;
+            }
+            await DBService.instance.followBox.delete(item.id);
+            await FollowService.instance.loadData();
+            // 如果取消关注的是当前正在播放的直播间，更新状态
+            if (controller.rxSite.value.id == item.siteId && controller.rxRoomId.value == item.roomId) {
+              controller.followed.value = false;
+            }
+          },
+        ),
+      ],
+    ),
+  );
 }
