@@ -82,11 +82,11 @@ class BiliBiliDanmaku implements LiveDanmaku {
       url: wsUrl,
       backupUrl: backupUrls.first,
       heartBeatTime: heartbeatTime,
-      headers: args.cookie.isEmpty
-          ? null
-          : {
-              "cookie": args.cookie,
-            },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36",
+        "Origin": "https://live.bilibili.com",
+        if (args.cookie.isNotEmpty) "Cookie": args.cookie,
+      },
       onMessage: (e) {
         decodeMessage(e);
       },
