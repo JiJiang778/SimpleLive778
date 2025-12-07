@@ -284,64 +284,6 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 接收到WebSocket关闭信息
   void onWSClose(String msg) {
     addSysMsg(msg);
-    
-    // 如果是B站且未登录，显示醒目的弹窗提示
-    if (site.id == "bilibili" && msg.contains("游客模式")) {
-      SmartDialog.show(
-        alignment: Alignment.center,
-        builder: (context) {
-          return Container(
-            width: 320,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.info_outline,
-                  size: 48,
-                  color: Colors.orange,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "当前为游客模式",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "无法查看B站弹幕",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "请在「我的-账号管理」中\n登录B站账号",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    SmartDialog.dismiss();
-                  },
-                  child: const Text("我知道了"),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    }
   }
 
   /// WebSocket准备就绪
