@@ -38,6 +38,18 @@ class FollowUserItem extends StatelessWidget {
         TextSpan(
           text: item.userName,
           children: [
+            if (item.pinned)
+              const WidgetSpan(
+                alignment: ui.PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Remix.pushpin_fill,
+                    size: 14,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
             WidgetSpan(
               alignment: ui.PlaceholderAlignment.middle,
               child: Obx(
