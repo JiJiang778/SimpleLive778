@@ -117,6 +117,7 @@ class PageListView extends StatelessWidget {
             offstage: !pageController.pageError.value,
             child: AppErrorWidget(
               errorMsg: pageController.errorMsg.value,
+              fullErrorMsg: pageController.fullErrorMsg.value,
               onRefresh: () => pageController.refreshData(),
             ),
           ),
