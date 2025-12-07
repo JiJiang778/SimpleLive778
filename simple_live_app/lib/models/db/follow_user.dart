@@ -12,7 +12,9 @@ class FollowUser {
     required this.userName,
     required this.face,
     required this.addTime,
-    this.tag = "全部"
+    this.tag = "全部",
+    this.pinned = false,
+    this.pinnedTime,
   });
 
   ///id=siteId_roomId
@@ -37,6 +39,12 @@ class FollowUser {
   @HiveField(6)
   String tag;
 
+  @HiveField(7)
+  bool pinned;
+
+  @HiveField(8)
+  DateTime? pinnedTime;
+
   /// 直播状态
   /// 0=未知(加载中) 1=未开播 2=直播中
   Rx<int> liveStatus = 0.obs;
@@ -52,6 +60,8 @@ class FollowUser {
         face: json['face'],
         addTime: DateTime.parse(json['addTime']),
         tag: json["tag"]??"全部",
+        pinned: json['pinned'] ?? false,
+        pinnedTime: json['pinnedTime'] != null ? DateTime.parse(json['pinnedTime']) : null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -62,5 +72,7 @@ class FollowUser {
         'face': face,
         'addTime': addTime.toString(),
         'tag':tag,
+        'pinned': pinned,
+        'pinnedTime': pinnedTime?.toString(),
       };
 }
