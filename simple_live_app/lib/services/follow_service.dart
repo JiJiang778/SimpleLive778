@@ -249,7 +249,21 @@ class FollowService extends GetxService {
   }
 
   void filterData() {
-    followList.sort((a, b) => b.liveStatus.value.compareTo(a.liveStatus.value));
+    // 排序逻辑：置顶 > 直播状态 > 置顶时间(越新越靠前)
+    followList.sort((a, b) {
+      // 先比较置顶状态
+      if (a.pinned != b.pinned) {
+        return a.pinned ? -1 : 1;
+      }
+      // 如果都是置顶，按置顶时间排序（越新越靠前）
+      if (a.pinned && b.pinned) {
+        if (a.pinnedTime != null && b.pinnedTime != null) {
+          return b.pinnedTime!.compareTo(a.pinnedTime!);
+        }
+      }
+      // 再比较直播状态
+      return b.liveStatus.value.compareTo(a.liveStatus.value);
+    });
     liveList.assignAll(followList.where((x) => x.liveStatus.value == 2));
     notLiveList.assignAll(followList.where((x) => x.liveStatus.value == 1));
     _updatedListController.add(0);
