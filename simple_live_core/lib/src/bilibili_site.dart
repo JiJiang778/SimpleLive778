@@ -252,20 +252,16 @@ class BiliBiliSite implements LiveSite {
       var hostList = roomDanmakuResult["data"]["host_list"] as List;
       print("B站弹幕服务器列表: $hostList");
       
-      // 根据blivedm最新代码，使用wss_port（通常是443）
+      // 强制使用443端口（标准HTTPS/WSS端口）
+      // API返回的端口可能不正确，导致连接失败
       for (var e in hostList) {
         var host = e["host"].toString();
         var wssPort = e["wss_port"];
         
-        print("服务器: $host, WSS端口: $wssPort");
+        print("服务器: $host, API返回WSS端口: $wssPort, 实际使用: 443");
         
-        // 使用API返回的wss_port，通常是443
-        if (wssPort != null && wssPort != 0) {
-          serverHosts.add("$host:$wssPort");
-        } else {
-          // 如果没有wss_port，使用默认443
-          serverHosts.add("$host:443");
-        }
+        // 强制使用443端口，忽略API返回值
+        serverHosts.add("$host:443");
       }
       
       // 添加额外的备用服务器
