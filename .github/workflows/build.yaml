@@ -131,54 +131,35 @@ jobs:
           flutter-version: "3.38.x"
           cache: true
           
-      - name: Flutter Doctor
+      # 打开MAC Desktop支持
+      - name: Enable Flutter Desktop
+        run: flutter config --enable-macos-desktop
+
+      # 更新Flutter的packages
+      - name: Restore packages
         run: |
-          flutter doctor -v
-          flutter --version
-          
-      - name: Clean macOS build
-        working-directory: simple_live_app
-        run: flutter clean
-          
-      - name: Install simple_live_core dependencies
-        working-directory: simple_live_core
-        run: flutter pub get
-        
-      - name: Install simple_live_app dependencies
-        working-directory: simple_live_app
-        run: flutter pub get
-          
-      - name: Install CocoaPods
-        working-directory: simple_live_app/macos
-        run: pod install
-          
+          cd simple_live_app
+          flutter pub get
+
+      # 安装appdmg
+      - name: Install appdmg
+        run: npm install -g appdmg
+
+      # 设置flutter_distributor环境
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+
+      # 打包MAC
       - name: Build macOS
-        working-directory: simple_live_app
         run: |
-          flutter build macos --release
-          
-      - name: Create DMG package
-        working-directory: simple_live_app
-        run: |
-          brew install create-dmg
-          create-dmg \
-            --volname "SimpleLive" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --app-drop-link 600 185 \
-            "SimpleLive-macOS.dmg" \
-            "build/macos/Build/Products/Release/simple_live_app.app" || true
-          # 如果 create-dmg 失败，使用简单的 zip 打包
-          if [ ! -f "SimpleLive-macOS.dmg" ]; then
-            cd build/macos/Build/Products/Release
-            zip -r ../../../../../SimpleLive-macOS.zip simple_live_app.app
-          fi
-          
-      - name: Upload macOS artifact
+          cd simple_live_app
+          flutter_distributor package --platform macos --targets dmg,zip --skip-clean
+
+      # 上传MAC至Artifacts
+      - name: Upload macOS to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: SimpleLive-macOS
+          name: mac
           path: |
-            simple_live_app/SimpleLive-macOS.dmg
-            simple_live_app/SimpleLive-macOS.zip
+            simple_live_app/build/dist/*/*.dmg
+            simple_live_app/build/dist/*/*.zip
