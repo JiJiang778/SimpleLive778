@@ -27,12 +27,22 @@ class BaseController extends GetxController {
   /// 错误信息
   var errorMsg = "".obs;
 
+  /// 完整的错误信息，用于复制
+  var fullErrorMsg = "".obs;
+  
   /// 显示错误
   /// * [msg] 错误信息
   /// * [showPageError] 显示页面错误
   /// * 只在第一页加载错误时showPageError=true，后续页加载错误时使用Toast弹出通知
   void handleError(Object exception, {bool showPageError = false}) {
-    Log.e(exception.toString(), StackTrace.current);
+    var stackTrace = StackTrace.current;
+    Log.e(exception.toString(), stackTrace);
+    
+    // 保存完整的错误信息
+    fullErrorMsg.value = "错误类型: ${exception.runtimeType}\n"
+        "错误详情: $exception\n"
+        "堆栈信息:\n$stackTrace";
+    
     var msg = exceptionToString(exception);
 
     if (showPageError) {
