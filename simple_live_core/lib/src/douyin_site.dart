@@ -691,6 +691,10 @@ class DouyinSite implements LiveSite {
   @override
   Future<LiveSearchRoomResult> searchRooms(String keyword,
       {int page = 1}) async {
+    print("========================================");
+    print("抖音搜索开始: 关键词='$keyword', 页码=$page");
+    print("========================================");
+    
     // 抖音搜索不区分房间和主播，统一搜索主播名或标题
     // 使用抖音Web通用搜索流接口
     String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/stream/";
@@ -744,10 +748,17 @@ class DouyinSite implements LiveSite {
     
     String requlestUrl;
     try {
+      print("抖音搜索房间 - 开始生成a_bogus签名...");
       requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-      print("抖音搜索房间 - 签名后URL长度: ${requlestUrl.length}");
-    } catch (e) {
-      print("抖音搜索房间 - a_bogus签名失败: $e");
+      print("抖音搜索房间 - 签名成功，URL长度: ${requlestUrl.length}");
+      if (requlestUrl.isEmpty) {
+        throw Exception("签名后URL为空");
+      }
+    } catch (e, stackTrace) {
+      print("抖音搜索房间 - a_bogus签名失败！！！");
+      print("错误类型: ${e.runtimeType}");
+      print("错误详情: $e");
+      print("堆栈信息: $stackTrace");
       throw Exception("抖音搜索签名失败: $e");
     }
     var headResp = await HttpClient.instance
