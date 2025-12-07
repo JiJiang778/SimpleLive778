@@ -23,6 +23,8 @@ class AppSearchController extends GetxController
       }
 
       index = currentIndex;
+      // 触发UI更新，用于显示/隐藏房间/主播选择器
+      searchMode.refresh();
       // if (Sites.supportSites[index].id == Constant.kDouyin) {
       //   return;
       // }
