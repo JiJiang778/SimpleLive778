@@ -115,6 +115,22 @@ class FollowUserController extends BasePageController<FollowUser> {
   void updateItem(FollowUser item){
     FollowService.instance.addFollow(item);
   }
+
+  // 置顶主播
+  void pinFollowUser(FollowUser item) async {
+    item.pinned = true;
+    item.pinnedTime = DateTime.now();
+    await DBService.instance.addFollow(item);
+    refreshData();
+  }
+
+  // 取消置顶
+  void unpinFollowUser(FollowUser item) async {
+    item.pinned = false;
+    item.pinnedTime = null;
+    await DBService.instance.addFollow(item);
+    refreshData();
+  }
   // 修改item的标签
   void setItemTag(FollowUser item, FollowUserTag targetTag) {
     FollowUserTag tarTag = targetTag;
