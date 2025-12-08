@@ -146,6 +146,8 @@ class FollowService extends GetxService {
       return;
     }
     followList.assignAll(list);
+    // 加载后立即排序，确保置顶数据生效
+    filterData();
     if (updateStatus) {
       startUpdateStatus();
     }
@@ -429,7 +431,9 @@ class FollowService extends GetxService {
             "userName": item.userName,
             "face": item.face,
             "addTime": item.addTime.toString(),
-            "tag": item.tag
+            "tag": item.tag,
+            "pinned": item.pinned,
+            "pinnedTime": item.pinnedTime?.toString(),
           },
         )
         .toList();
