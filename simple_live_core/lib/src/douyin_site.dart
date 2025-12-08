@@ -748,51 +748,78 @@ class DouyinSite implements LiveSite {
     
     String requlestUrl;
     try {
+      print("抖音搜索房间 - 开始生成a_bogus签名...");
       requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-    } catch (e) {
-      // 如果签名失败，直接使用原URL
-      requlestUrl = uri.toString();
-      print("抖音搜索 - 签名失败，使用原URL");
+      print("抖音搜索房间 - 签名成功，URL长度: ${requlestUrl.length}");
+      if (requlestUrl.isEmpty) {
+        throw Exception("签名后URL为空");
+      }
+    } catch (e, stackTrace) {
+      print("抖音搜索房间 - a_bogus签名失败！！！");
+      print("错误类型: ${e.runtimeType}");
+      print("错误详情: $e");
+      print("堆栈信息: $stackTrace");
+      throw Exception("抖音搜索签名失败: $e");
     }
-    // 直接使用默认的 ttwid，更稳定
-    var dyCookie = kDefaultCookie;
+    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
+    var requestHeaders = await getRequestHeaders();
+    var dyCookie = requestHeaders["cookie"] ?? "";
     
     print("抖音搜索房间 - 使用的Cookie: ${dyCookie.length > 100 ? dyCookie.substring(0, 100) + '...' : dyCookie}");
     print("抖音搜索房间 - 开始发送GET请求...");
     
+    print("抖音搜索房间 - 开始发送GET请求...");
+    print("请求URL长度: ${requlestUrl.length}");
+    print("Cookie长度: ${dyCookie.length}");
+    
     dynamic result;
     try {
-      // 简化请求头，只保留必要的
       result = await HttpClient.instance.getJson(
         requlestUrl,
         queryParameters: {},
         header: {
+          "Authority": 'www.douyin.com',
           'accept': 'application/json, text/plain, */*',
+          'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
           'cookie': dyCookie,
-          'referer': 'https://www.douyin.com/',
+          'priority': 'u=1, i',
+          'referer':
+              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=general',
+          'sec-ch-ua':
+              '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-origin',
           'user-agent': kDefaultUserAgent,
         },
       );
-    } catch (e) {
-      // 如果请求失败，尝试用最简单的方式
-      try {
-        result = await HttpClient.instance.getText(
-          requlestUrl,
-          queryParameters: {},
-          header: {
-            'cookie': dyCookie,
-            'user-agent': kDefaultUserAgent,
-          },
-        );
-        // 如果返回的是字符串，尝试解析为JSON
-        if (result is String) {
-          result = json.decode(result);
-        }
-      } catch (e2) {
-        // 全部失败，返回空结果
-        print("抖音搜索失败: $e2");
-        return LiveSearchRoomResult(hasMore: false, items: []);
+      print("抖音搜索房间 - HTTP请求成功");
+      print("返回数据类型: ${result.runtimeType}");
+    } catch (e, stackTrace) {
+      print("======== 抖音搜索HTTP请求失败 ========");
+      print("错误类型: ${e.runtimeType}");
+      print("错误详情: $e");
+      print("请求URL前100字符: ${requlestUrl.substring(0, requlestUrl.length > 100 ? 100 : requlestUrl.length)}");
+      print("Cookie: ${dyCookie.substring(0, dyCookie.length > 100 ? 100 : dyCookie.length)}");
+      print("堆栈信息: $stackTrace");
+      print("======================================");
+      
+      // 提供更友好的错误提示
+      var errorStr = e.toString();
+      if (errorStr.contains('444')) {
+        throw Exception("抖音搜索请求频率过高（444）\n建议：在「我的-账号管理」中设置自己的抖音Cookie");
+      } else if (errorStr.contains('403')) {
+        throw Exception("抖音搜索被限制（403）\n请稍后再试或设置自己的Cookie");
+      } else if (errorStr.contains('SocketException')) {
+        throw Exception("网络连接失败\n请检查网络连接");
+      } else if (errorStr.contains('Connection')) {
+        throw Exception("网络连接被中断\n请检查网络连接");
+      } else if (errorStr.contains('TimeoutException')) {
+        throw Exception("请求超时\n请检查网络连接");
       }
+      throw Exception("抖音搜索请求失败\n错误: $e");
     }
     
     if (result == "" || result == 'blocked') {
@@ -980,51 +1007,33 @@ class DouyinSite implements LiveSite {
       "need_filter_settings": "1",
       "webid": "7504325054068213283",
     });
+    var requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
     
-    String requlestUrl;
-    try {
-      requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-    } catch (e) {
-      // 如果签名失败，直接使用原URL
-      requlestUrl = uri.toString();
-    }
-    
-    // 直接使用默认的 ttwid，更稳定
-    var dyCookie = kDefaultCookie;
+    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
+    var requestHeaders = await getRequestHeaders();
+    var dyCookie = requestHeaders["cookie"] ?? "";
 
-    dynamic result;
-    try {
-      // 简化请求头，只保留必要的
-      result = await HttpClient.instance.getJson(
-        requlestUrl,
-        queryParameters: {},
-        header: {
-          'accept': 'application/json, text/plain, */*',
-          'cookie': dyCookie,
-          'referer': 'https://www.douyin.com/',
-          'user-agent': kDefaultUserAgent,
-        },
-      );
-    } catch (e) {
-      // 如果请求失败，尝试用最简单的方式
-      try {
-        result = await HttpClient.instance.getText(
-          requlestUrl,
-          queryParameters: {},
-          header: {
-            'cookie': dyCookie,
-            'user-agent': kDefaultUserAgent,
-          },
-        );
-        // 如果返回的是字符串，尝试解析为JSON
-        if (result is String) {
-          result = json.decode(result);
-        }
-      } catch (e2) {
-        // 全部失败，返回空结果
-        return LiveSearchAnchorResult(hasMore: false, items: []);
-      }
-    }
+    var result = await HttpClient.instance.getJson(
+      requlestUrl,
+      queryParameters: {},
+      header: {
+        "Authority": 'www.douyin.com',
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'cookie': dyCookie,
+        'priority': 'u=1, i',
+        'referer':
+            'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=general',
+        'sec-ch-ua':
+            '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': kDefaultUserAgent,
+      },
+    );
     if (result == "" || result == 'blocked') {
       throw Exception("抖音直播搜索被限制，请稍后再试");
     }
