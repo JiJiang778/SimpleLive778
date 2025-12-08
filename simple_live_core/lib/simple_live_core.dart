@@ -13,7 +13,6 @@ export 'src/danmaku/douyu_danmaku.dart';
 export 'src/danmaku/huya_danmaku.dart';
 export 'src/danmaku/douyin_danmaku.dart';
 export 'src/scripts/douyin_sign.dart';
-export 'src/scripts/douyu_sign.dart';
 
 export 'src/model/live_category_result.dart';
 export 'src/model/live_category.dart';
