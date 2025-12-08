@@ -37,7 +37,7 @@ class DouyinSite implements LiveSite {
   }
 
   static const String kDefaultUserAgent =
-      "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.97 Safari/537.36 Core/1.116.567.400 QQBrowser/19.7.6764.400";
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0";
 
   static const String kDefaultReferer = "https://live.douyin.com";
 
@@ -689,52 +689,50 @@ class DouyinSite implements LiveSite {
   Future<LiveSearchRoomResult> searchRooms(String keyword,
       {int page = 1}) async {
     
-    // 抖音搜索不区分房间和主播，统一搜索主播名或标题
-    // 使用抖音Web通用搜索流接口
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/stream/";
+    // 使用抖音专用的直播搜索接口
+    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
     var uri = Uri.parse(serverUrl)
         .replace(scheme: "https", port: 443, queryParameters: {
       "device_platform": "webapp",
       "aid": "6383",
       "channel": "channel_pc_web",
-      "search_channel": "aweme_general",
+      "search_channel": "aweme_live",  // 专用直播搜索频道
       "keyword": keyword,
-      "search_source": "normal_search",
+      "search_source": "switch_tab",  // 从tab切换来的
       "query_correct_type": "1",
       "is_filter_search": "0",
       "from_group_id": "",
-      "offset": ((page - 1) * 10).toString(),
-      "count": "10",
-      "enable_history": "1",
       "disable_rs": "0",
+      "offset": ((page - 1) * 15).toString(),  // 每页15个
+      "count": "15",
+      "need_filter_settings": "1",
+      "list_type": "multi",
+      "pc_search_top_1_params": "{\"enable_ai_search_top_1\":1}",
+      "update_version_code": "170400",
       "pc_client_type": "1",
       "pc_libra_divert": "Windows",
-      "pc_search_top_1_params": "{\"enable_ai_search_top_1\":1}",
-      "version_code": "190600",
-      "version_name": "19.6.0",
-      "update_version_code": "0",
+      "support_h265": "1",
+      "support_dash": "1",
+      "cpu_core_num": "12",
+      "version_code": "170400",
+      "version_name": "17.4.0",
       "cookie_enabled": "true",
-      "screen_width": "1980",
-      "screen_height": "1080",
+      "screen_width": "1536",
+      "screen_height": "864",
       "browser_language": "zh-CN",
       "browser_platform": "Win32",
       "browser_name": "Edge",
-      "browser_version": "142.0.0.0",
+      "browser_version": "143.0.0.0",
       "browser_online": "true",
       "engine_name": "Blink",
-      "engine_version": "142.0.0.0",
+      "engine_version": "143.0.0.0",
       "os_name": "Windows",
       "os_version": "10",
-      "cpu_core_num": "12",
       "device_memory": "8",
       "platform": "PC",
       "downlink": "10",
       "effective_type": "4g",
-      "round_trip_time": "100",
-      "support_dash": "1",
-      "support_h265": "1",
-      "list_type": "multi",
-      "need_filter_settings": "1",
+      "round_trip_time": "50",
       "webid": "7504325054068213283",
     });
     
@@ -776,9 +774,9 @@ class DouyinSite implements LiveSite {
           'cookie': dyCookie,
           'priority': 'u=1, i',
           'referer':
-              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=general',
+              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=live',
           'sec-ch-ua':
-              '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+              '"Microsoft Edge";v="143", "Chromium";v="143", "Not.A/Brand";v="24"',
           'sec-ch-ua-mobile': '?0',
           'sec-ch-ua-platform': '"Windows"',
           'sec-fetch-dest': 'empty',
@@ -845,41 +843,190 @@ class DouyinSite implements LiveSite {
       return LiveSearchRoomResult(hasMore: false, items: items);
     }
     
+    // 打印返回数据结构（仅在调试时启用）
+    // print("抖音直播搜索返回数据结构: ${json.encode(result).substring(0, 500)}...");
+    
     // 新的API返回格式：data是一个数组，每个元素包含type和user_list
     var dataList = result["data"];
     if (dataList is! List) {
-      return LiveSearchRoomResult(hasMore: false, items: items);
+      // 尝试其他可能的数据结构
+      if (result["data"] is Map && result["data"]["data"] != null) {
+        dataList = result["data"]["data"];
+      } else {
+        return LiveSearchRoomResult(hasMore: false, items: items);
+      }
     }
     
     for (var item in dataList) {
       try {
-        // 新格式: type=4表示用户/主播结果
-        if (item["type"] == 4 && item["user_list"] != null) {
-          var userList = item["user_list"] as List;
-          for (var user in userList) {
-            try {
-              var userInfo = user["user_info"];
-              if (userInfo == null) continue;
-              
-              // 获取房间ID
-              var roomId = userInfo["room_id"]?.toString();
-              if (roomId == null || roomId.isEmpty || roomId == "0") {
-                continue; // 跳过没有直播的用户
+        // 检查item类型
+        if (item is! Map) continue;
+        
+        // 处理type=1的直播搜索结果（新格式）
+        if (item["type"] == 1 && item["lives"] != null) {
+          var lives = item["lives"];
+          
+          // 解析rawdata字段
+          Map<String, dynamic>? liveData;
+          if (lives["rawdata"] != null) {
+            var rawdata = lives["rawdata"];
+            liveData = rawdata is String ? json.decode(rawdata) : rawdata;
+          }
+          
+          if (liveData != null) {
+            // 从rawdata中提取信息
+            String? roomId = liveData["id_str"]?.toString() ?? liveData["id"]?.toString();
+            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
+            
+            String? title = liveData["title"]?.toString() ?? "";
+            String? cover;
+            String? userName;
+            int online = 0;
+            
+            // 获取封面
+            if (liveData["cover"] != null && liveData["cover"]["url_list"] != null) {
+              var urlList = liveData["cover"]["url_list"];
+              if (urlList is List && urlList.isNotEmpty) {
+                cover = urlList[0].toString();
               }
-              
-              var roomItem = LiveRoomItem(
-                roomId: roomId,
-                title: userInfo["nickname"]?.toString() ?? "",
-                cover: userInfo["avatar_larger"]?["url_list"]?[0]?.toString() ?? "",
-                userName: userInfo["nickname"]?.toString() ?? "",
-                online: 0, // 新接口不返回在线人数
-              );
-              items.add(roomItem);
-            } catch (e) {
-              // 解析用户项失败，跳过
-              continue;
+            }
+            
+            // 获取主播信息
+            if (liveData["owner"] != null) {
+              userName = liveData["owner"]["nickname"]?.toString();
+              // 如果owner有web_rid，优先使用
+              var webRid = liveData["owner"]["web_rid"]?.toString();
+              if (webRid != null && webRid.isNotEmpty) {
+                roomId = webRid;
+              }
+            }
+            
+            // 从author字段补充信息
+            if (lives["author"] != null) {
+              userName ??= lives["author"]["nickname"]?.toString();
+              // 如果还没有封面，从author获取头像作为封面
+              if (cover == null || cover.isEmpty) {
+                var avatar = lives["author"]["avatar_larger"];
+                if (avatar != null && avatar["url_list"] != null) {
+                  var urlList = avatar["url_list"];
+                  if (urlList is List && urlList.isNotEmpty) {
+                    cover = urlList[0].toString();
+                  }
+                }
+              }
+            }
+            
+            // 获取在线人数
+            if (liveData["stats"] != null) {
+              online = int.tryParse(liveData["stats"]["total_user"]?.toString() ?? "0") ?? 0;
+            } else if (liveData["user_count"] != null) {
+              online = int.tryParse(liveData["user_count"].toString()) ?? 0;
+            }
+            
+            var roomItem = LiveRoomItem(
+              roomId: roomId,
+              title: title.isEmpty ? (userName ?? "") : title,
+              cover: cover ?? "",
+              userName: userName ?? "",
+              online: online,
+            );
+            items.add(roomItem);
+            continue;
+          }
+        }
+        
+        // 处理其他格式的直播间数据
+        var liveRoom = item["live_room"];
+        var liveUser = item["live_user"];
+        var liveInfo = item["live"];
+        
+        // 尝试从多个字段获取数据
+        String? roomId;
+        String? title;
+        String? cover;
+        String? userName;
+        int? online = 0;
+        
+        // 获取房间ID
+        if (liveRoom != null && liveRoom["web_rid"] != null) {
+          roomId = liveRoom["web_rid"].toString();
+        } else if (liveUser != null && liveUser["room_id"] != null) {
+          roomId = liveUser["room_id"].toString();
+        } else if (item["room_id"] != null) {
+          roomId = item["room_id"].toString();
+        }
+        
+        if (roomId == null || roomId.isEmpty || roomId == "0") {
+          // 尝试旧格式: type=4表示用户/主播结果
+          if (item["type"] == 4 && item["user_list"] != null) {
+              var userList = item["user_list"] as List;
+              for (var user in userList) {
+                try {
+                  var userInfo = user["user_info"];
+                  if (userInfo == null) continue;
+                  
+                  // 获取房间ID
+                  roomId = userInfo["room_id"]?.toString();
+                  if (roomId == null || roomId.isEmpty || roomId == "0") {
+                    continue; // 跳过没有直播的用户
+                  }
+                  
+                  var roomItem = LiveRoomItem(
+                    roomId: roomId,
+                    title: userInfo["nickname"]?.toString() ?? "",
+                    cover: userInfo["avatar_larger"]?["url_list"]?[0]?.toString() ?? "",
+                    userName: userInfo["nickname"]?.toString() ?? "",
+                    online: 0,
+                  );
+                  items.add(roomItem);
+                } catch (e) {
+                  continue;
+                }
+              }
+            }
+            continue;
+          }
+          
+          // 获取标题
+          if (liveRoom != null && liveRoom["title"] != null) {
+            title = liveRoom["title"].toString();
+          } else if (liveInfo != null && liveInfo["title"] != null) {
+            title = liveInfo["title"].toString();
+          }
+          
+          // 获取封面
+          if (liveRoom != null && liveRoom["cover"] != null) {
+            var coverData = liveRoom["cover"];
+            if (coverData is Map && coverData["url_list"] != null) {
+              var urlList = coverData["url_list"];
+              if (urlList is List && urlList.isNotEmpty) {
+                cover = urlList[0].toString();
+              }
+            } else if (coverData is String) {
+              cover = coverData;
             }
           }
+          
+          // 获取用户名
+          if (liveUser != null && liveUser["nickname"] != null) {
+            userName = liveUser["nickname"].toString();
+          } else if (liveRoom != null && liveRoom["owner"] != null && liveRoom["owner"]["nickname"] != null) {
+            userName = liveRoom["owner"]["nickname"].toString();
+          }
+          
+          // 获取在线人数
+          if (liveRoom != null && liveRoom["user_count"] != null) {
+            online = int.tryParse(liveRoom["user_count"].toString()) ?? 0;
+          }
+          
+          var roomItem = LiveRoomItem(
+            roomId: roomId,
+            title: title ?? userName ?? "",
+            cover: cover ?? "",
+            userName: userName ?? "",
+            online: online,
+          );
+          items.add(roomItem);
         }
         // 兼容旧格式
         else {
@@ -961,58 +1108,57 @@ class DouyinSite implements LiveSite {
         continue;
       }
     }
-    return LiveSearchRoomResult(hasMore: items.length >= 10, items: items);
+    // 直播搜索API每页返回15条，判断是否还有更多数据
+    return LiveSearchRoomResult(hasMore: items.length >= 15, items: items);
   }
 
   @override
   Future<LiveSearchAnchorResult> searchAnchors(String keyword,
       {int page = 1}) async {
-    // 抖音搜索主播与搜索房间使用相同接口，返回相同数据
-    // 使用抖音Web通用搜索流接口
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/stream/";
+    // 使用抖音专用的直播搜索接口（与searchRooms共用）
+    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
     var uri = Uri.parse(serverUrl)
         .replace(scheme: "https", port: 443, queryParameters: {
       "device_platform": "webapp",
       "aid": "6383",
       "channel": "channel_pc_web",
-      "search_channel": "aweme_general",
+      "search_channel": "aweme_live",  // 专用直播搜索频道
       "keyword": keyword,
-      "search_source": "normal_search",
+      "search_source": "switch_tab",  // 从tab切换来的
       "query_correct_type": "1",
       "is_filter_search": "0",
       "from_group_id": "",
-      "offset": ((page - 1) * 10).toString(),
-      "count": "10",
-      "enable_history": "1",
       "disable_rs": "0",
+      "offset": ((page - 1) * 15).toString(),  // 每页15个
+      "count": "15",
+      "need_filter_settings": "1",
+      "list_type": "multi",
+      "pc_search_top_1_params": "{\"enable_ai_search_top_1\":1}",
+      "update_version_code": "170400",
       "pc_client_type": "1",
       "pc_libra_divert": "Windows",
-      "pc_search_top_1_params": "{\"enable_ai_search_top_1\":1}",
-      "version_code": "190600",
-      "version_name": "19.6.0",
-      "update_version_code": "0",
+      "support_h265": "1",
+      "support_dash": "1",
+      "cpu_core_num": "12",
+      "version_code": "170400",
+      "version_name": "17.4.0",
       "cookie_enabled": "true",
-      "screen_width": "1980",
-      "screen_height": "1080",
+      "screen_width": "1536",
+      "screen_height": "864",
       "browser_language": "zh-CN",
       "browser_platform": "Win32",
       "browser_name": "Edge",
-      "browser_version": "142.0.0.0",
+      "browser_version": "143.0.0.0",
       "browser_online": "true",
       "engine_name": "Blink",
-      "engine_version": "142.0.0.0",
+      "engine_version": "143.0.0.0",
       "os_name": "Windows",
       "os_version": "10",
-      "cpu_core_num": "12",
       "device_memory": "8",
       "platform": "PC",
       "downlink": "10",
       "effective_type": "4g",
-      "round_trip_time": "100",
-      "support_dash": "1",
-      "support_h265": "1",
-      "list_type": "multi",
-      "need_filter_settings": "1",
+      "round_trip_time": "50",
       "webid": "7504325054068213283",
     });
     var requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
@@ -1031,9 +1177,9 @@ class DouyinSite implements LiveSite {
         'cookie': dyCookie,
         'priority': 'u=1, i',
         'referer':
-            'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=general',
+            'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=live',
         'sec-ch-ua':
-            '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+            '"Microsoft Edge";v="143", "Chromium";v="143", "Not.A/Brand";v="24"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
         'sec-fetch-dest': 'empty',
@@ -1052,14 +1198,135 @@ class DouyinSite implements LiveSite {
       return LiveSearchAnchorResult(hasMore: false, items: items);
     }
     
+    // 打印返回数据结构（仅在调试时启用）
+    // print("抖音主播搜索返回数据结构: ${json.encode(result).substring(0, 500)}...");
+    
     var dataList = result["data"];
     if (dataList is! List) {
-      return LiveSearchAnchorResult(hasMore: false, items: items);
+      // 尝试其他可能的数据结构
+      if (result["data"] is Map && result["data"]["data"] != null) {
+        dataList = result["data"]["data"];
+      } else {
+        return LiveSearchAnchorResult(hasMore: false, items: items);
+      }
     }
     
     for (var item in dataList) {
       try {
-        // 新格式: type=4表示用户/主播结果
+        // 检查item类型
+        if (item is! Map) continue;
+        
+        // 处理type=1的直播搜索结果（新格式）
+        if (item["type"] == 1 && item["lives"] != null) {
+          var lives = item["lives"];
+          
+          // 解析rawdata字段
+          Map<String, dynamic>? liveData;
+          if (lives["rawdata"] != null) {
+            var rawdata = lives["rawdata"];
+            liveData = rawdata is String ? json.decode(rawdata) : rawdata;
+          }
+          
+          if (liveData != null) {
+            // 从rawdata中提取信息
+            String? roomId = liveData["id_str"]?.toString() ?? liveData["id"]?.toString();
+            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
+            
+            String? userName;
+            String? avatar;
+            bool liveStatus = liveData["status"] == 2; // status=2表示正在直播
+            
+            // 获取主播信息
+            if (liveData["owner"] != null) {
+              userName = liveData["owner"]["nickname"]?.toString();
+              // 如果owner有web_rid，优先使用
+              var webRid = liveData["owner"]["web_rid"]?.toString();
+              if (webRid != null && webRid.isNotEmpty) {
+                roomId = webRid;
+              }
+              // 获取头像
+              if (liveData["owner"]["avatar_thumb"] != null) {
+                var avatarThumb = liveData["owner"]["avatar_thumb"];
+                if (avatarThumb["url_list"] != null && (avatarThumb["url_list"] as List).isNotEmpty) {
+                  avatar = avatarThumb["url_list"][0].toString();
+                }
+              }
+            }
+            
+            // 从author字段补充信息
+            if (lives["author"] != null) {
+              userName ??= lives["author"]["nickname"]?.toString();
+              // 如果还没有头像，从author获取
+              if (avatar == null || avatar.isEmpty) {
+                var avatarData = lives["author"]["avatar_larger"] ?? lives["author"]["avatar_thumb"];
+                if (avatarData != null && avatarData["url_list"] != null) {
+                  var urlList = avatarData["url_list"];
+                  if (urlList is List && urlList.isNotEmpty) {
+                    avatar = urlList[0].toString();
+                  }
+                }
+              }
+            }
+            
+            var anchorItem = LiveAnchorItem(
+              roomId: roomId,
+              avatar: avatar ?? "",
+              userName: userName ?? "",
+              liveStatus: liveStatus,
+            );
+            items.add(anchorItem);
+            continue;
+          }
+        }
+        
+        // 处理其他格式的主播数据
+        var liveRoom = item["live_room"];
+        var liveUser = item["live_user"];
+        
+        String? roomId;
+        String? userName;
+        String? avatar;
+        bool liveStatus = false;
+        
+        // 获取房间ID和用户信息
+        if (liveRoom != null && liveRoom["web_rid"] != null) {
+          roomId = liveRoom["web_rid"].toString();
+          liveStatus = true; // 有直播间信息说明正在直播
+          // 从liveRoom获取用户信息
+          if (liveRoom["owner"] != null) {
+            userName = liveRoom["owner"]["nickname"]?.toString();
+          }
+        } else if (liveUser != null) {
+          // 从liveUser获取信息
+          roomId = liveUser["room_id"]?.toString();
+          userName = liveUser["nickname"]?.toString();
+          liveStatus = liveUser["is_living"] == true;
+          // 获取头像
+          if (liveUser["avatar_thumb"] != null) {
+            var avatarData = liveUser["avatar_thumb"];
+            if (avatarData is Map && avatarData["url_list"] != null) {
+              var urlList = avatarData["url_list"];
+              if (urlList is List && urlList.isNotEmpty) {
+                avatar = urlList[0].toString();
+              }
+            }
+          }
+        } else if (item["room_id"] != null) {
+          roomId = item["room_id"].toString();
+        }
+        
+        if (roomId != null && roomId.isNotEmpty && roomId != "0") {
+          var anchorItem = LiveAnchorItem(
+            roomId: roomId,
+            avatar: avatar ?? "",
+            userName: userName ?? "",
+            liveStatus: liveStatus,
+          );
+          items.add(anchorItem);
+          continue;
+        }
+        
+        // 尝试旧格式: type=4表示用户/主播结果
         if (item["type"] == 4 && item["user_list"] != null) {
           var userList = item["user_list"] as List;
           for (var user in userList) {
@@ -1080,94 +1347,18 @@ class DouyinSite implements LiveSite {
               );
               items.add(anchorItem);
             } catch (e) {
-              // 解析主播项失败，跳过
+              // 解析用户项失败，跳过
               continue;
             }
           }
-        }
-        // 兼容旧格式
-        else {
-          Map<String, dynamic>? liveData;
-        
-        // 方式1: 直接获取live_info
-        if (item["live_info"] != null) {
-          liveData = item["live_info"];
-        }
-        // 方式2: lives.rawdata
-        else if (item["lives"] != null && item["lives"]["rawdata"] != null) {
-          var rawdata = item["lives"]["rawdata"];
-          liveData = rawdata is String ? json.decode(rawdata) : rawdata;
-        }
-        // 方式3: 直接使用item
-        else if (item["room"] != null) {
-          liveData = item["room"];
-        }
-        // 方式4: aweme_info
-        else if (item["aweme_info"] != null) {
-          liveData = item["aweme_info"];
-        }
-        
-        if (liveData == null) {
-          continue;
-        }
-        
-        // 获取主播信息
-        String? roomId;
-        String? avatar;
-        String? userName;
-        bool liveStatus = false;
-        
-        // 尝试获取roomId
-        if (liveData["owner"] != null) {
-          roomId = liveData["owner"]["web_rid"]?.toString() ?? 
-                    liveData["owner"]["room_id"]?.toString();
-          userName = liveData["owner"]["nickname"]?.toString();
-          
-          // 获取头像
-          if (liveData["owner"]["avatar_thumb"] != null) {
-            var avatarThumb = liveData["owner"]["avatar_thumb"];
-            if (avatarThumb["url_list"] != null && 
-                (avatarThumb["url_list"] as List).isNotEmpty) {
-              avatar = avatarThumb["url_list"][0].toString();
-            }
-          } else if (liveData["owner"]["avatar"] != null) {
-            avatar = liveData["owner"]["avatar"].toString();
-          }
-        }
-        
-        // 备选方案获取信息
-        if (roomId == null || roomId.isEmpty) {
-          roomId = liveData["room_id"]?.toString() ?? 
-                   liveData["id_str"]?.toString();
-        }
-        
-        if (userName == null || userName.isEmpty) {
-          userName = liveData["anchor_name"]?.toString() ?? 
-                     liveData["nickname"]?.toString();
-        }
-        
-        if (roomId == null || roomId.isEmpty) {
-          continue;
-        }
-        
-        // 判断直播状态
-        liveStatus = (liveData["status"] == 2) || 
-                     (liveData["live_status"] == 1);
-        
-          var anchorItem = LiveAnchorItem(
-            roomId: roomId,
-            avatar: avatar ?? "",
-            userName: userName ?? "",
-            liveStatus: liveStatus,
-          );
-          items.add(anchorItem);
         }
       } catch (e) {
         // 解析主播搜索结果项失败，跳过
         continue;
       }
     }
-    return LiveSearchAnchorResult(hasMore: items.length >= 10, items: items);
+    // 直播搜索API每页返回15条，判断是否还有更多数据
+    return LiveSearchAnchorResult(hasMore: items.length >= 15, items: items);
   }
 
   @override
