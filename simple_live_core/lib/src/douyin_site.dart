@@ -52,8 +52,7 @@ class DouyinSite implements LiveSite {
   String cookie = "";
 
   void _logDebug(String msg) {
-    // 同时使用 print 和 CoreLog 确保日志输出
-    print("[Douyin] $msg");
+    // 只使用 CoreLog，不使用 print
     CoreLog.d("[Douyin] $msg");
   }
 
@@ -423,7 +422,6 @@ class DouyinSite implements LiveSite {
         userUniqueId = generateRandomNumber(12).toString();
       }
     } catch (e) {
-      print("获取user_unique_id失败: $e，使用随机值");
       userUniqueId = generateRandomNumber(12).toString();
     }
 
@@ -476,7 +474,6 @@ class DouyinSite implements LiveSite {
       }
       return generateRandomNumber(12).toString();
     } catch (e) {
-      print("获取user_unique_id异常: $e");
       return generateRandomNumber(12).toString();
     }
   }
@@ -691,9 +688,6 @@ class DouyinSite implements LiveSite {
   @override
   Future<LiveSearchRoomResult> searchRooms(String keyword,
       {int page = 1}) async {
-    print("========================================");
-    print("抖音搜索开始: 关键词='$keyword', 页码=$page");
-    print("========================================");
     
     // 抖音搜索不区分房间和主播，统一搜索主播名或标题
     // 使用抖音Web通用搜索流接口
@@ -744,33 +738,31 @@ class DouyinSite implements LiveSite {
       "webid": "7504325054068213283",
     });
     
-    print("抖音搜索房间 - 原始URL: ${uri.toString()}");
     
     String requlestUrl;
     try {
-      print("抖音搜索房间 - 开始生成a_bogus签名...");
       requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-      print("抖音搜索房间 - 签名成功，URL长度: ${requlestUrl.length}");
       if (requlestUrl.isEmpty) {
         throw Exception("签名后URL为空");
       }
     } catch (e, stackTrace) {
-      print("抖音搜索房间 - a_bogus签名失败！！！");
-      print("错误类型: ${e.runtimeType}");
-      print("错误详情: $e");
-      print("堆栈信息: $stackTrace");
-      throw Exception("抖音搜索签名失败: $e");
+      var errorInfo = StringBuffer();
+      errorInfo.writeln("【抖音签名失败】");
+      errorInfo.writeln("错误类型: ${e.runtimeType}");
+      errorInfo.writeln("错误详情: $e");
+      errorInfo.writeln("");
+      errorInfo.writeln("【可能原因】");
+      errorInfo.writeln("1. 签名算法需要更新");
+      errorInfo.writeln("2. 网络请求被拦截");
+      errorInfo.writeln("");
+      errorInfo.writeln("【解决方案】");
+      errorInfo.writeln("1. 等待应用更新");
+      errorInfo.writeln("2. 在「我的-账号管理」设置自己的Cookie");
+      throw Exception(errorInfo.toString());
     }
     // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
     var requestHeaders = await getRequestHeaders();
     var dyCookie = requestHeaders["cookie"] ?? "";
-    
-    print("抖音搜索房间 - 使用的Cookie: ${dyCookie.length > 100 ? dyCookie.substring(0, 100) + '...' : dyCookie}");
-    print("抖音搜索房间 - 开始发送GET请求...");
-    
-    print("抖音搜索房间 - 开始发送GET请求...");
-    print("请求URL长度: ${requlestUrl.length}");
-    print("Cookie长度: ${dyCookie.length}");
     
     dynamic result;
     try {
@@ -795,31 +787,52 @@ class DouyinSite implements LiveSite {
           'user-agent': kDefaultUserAgent,
         },
       );
-      print("抖音搜索房间 - HTTP请求成功");
-      print("返回数据类型: ${result.runtimeType}");
     } catch (e, stackTrace) {
-      print("======== 抖音搜索HTTP请求失败 ========");
-      print("错误类型: ${e.runtimeType}");
-      print("错误详情: $e");
-      print("请求URL前100字符: ${requlestUrl.substring(0, requlestUrl.length > 100 ? 100 : requlestUrl.length)}");
-      print("Cookie: ${dyCookie.substring(0, dyCookie.length > 100 ? 100 : dyCookie.length)}");
-      print("堆栈信息: $stackTrace");
-      print("======================================");
+      // 构建详细的错误信息
+      var errorInfo = StringBuffer();
+      errorInfo.writeln("【抖音搜索失败】");
+      errorInfo.writeln("错误类型: ${e.runtimeType}");
+      errorInfo.writeln("错误详情: $e");
+      errorInfo.writeln("");
+      errorInfo.writeln("【调试信息】");
+      errorInfo.writeln("请求URL长度: ${requlestUrl.length}");
+      errorInfo.writeln("Cookie长度: ${dyCookie.length}");
+      if (dyCookie.isEmpty) {
+        errorInfo.writeln("Cookie: 空（使用默认配置）");
+      } else {
+        errorInfo.writeln("Cookie前50字符: ${dyCookie.substring(0, dyCookie.length > 50 ? 50 : dyCookie.length)}...");
+      }
+      errorInfo.writeln("");
       
-      // 提供更友好的错误提示
+      // 提供解决建议
       var errorStr = e.toString();
       if (errorStr.contains('444')) {
-        throw Exception("抖音搜索请求频率过高（444）\n建议：在「我的-账号管理」中设置自己的抖音Cookie");
+        errorInfo.writeln("【原因】请求频率过高（错误444）");
+        errorInfo.writeln("【解决方案】");
+        errorInfo.writeln("1. 等待几秒后再试");
+        errorInfo.writeln("2. 在「我的-账号管理」中设置自己的抖音Cookie");
       } else if (errorStr.contains('403')) {
-        throw Exception("抖音搜索被限制（403）\n请稍后再试或设置自己的Cookie");
+        errorInfo.writeln("【原因】访问被限制（错误403）");
+        errorInfo.writeln("【解决方案】");
+        errorInfo.writeln("1. 稍后再试");
+        errorInfo.writeln("2. 设置自己的Cookie");
       } else if (errorStr.contains('SocketException')) {
-        throw Exception("网络连接失败\n请检查网络连接");
+        errorInfo.writeln("【原因】网络连接失败");
+        errorInfo.writeln("【解决方案】检查网络连接");
       } else if (errorStr.contains('Connection')) {
-        throw Exception("网络连接被中断\n请检查网络连接");
+        errorInfo.writeln("【原因】连接被中断");
+        errorInfo.writeln("【解决方案】检查网络或防火墙设置");
       } else if (errorStr.contains('TimeoutException')) {
-        throw Exception("请求超时\n请检查网络连接");
+        errorInfo.writeln("【原因】请求超时");
+        errorInfo.writeln("【解决方案】检查网络速度");
+      } else {
+        errorInfo.writeln("【可能原因】");
+        errorInfo.writeln("1. 网络问题");
+        errorInfo.writeln("2. 抖音接口变化");
+        errorInfo.writeln("3. Cookie过期或无效");
       }
-      throw Exception("抖音搜索请求失败\n错误: $e");
+      
+      throw Exception(errorInfo.toString());
     }
     
     if (result == "" || result == 'blocked') {
@@ -827,19 +840,14 @@ class DouyinSite implements LiveSite {
     }
     var items = <LiveRoomItem>[];
     
-    print("抖音搜索结果: ${result.runtimeType}");
-    print("搜索关键字: $keyword");
-    
     // 检查返回数据格式 - 新接口可能使用不同的数据结构
     if (result["data"] == null) {
-      print("搜索结果data为空");
       return LiveSearchRoomResult(hasMore: false, items: items);
     }
     
     // 新的API返回格式：data是一个数组，每个元素包含type和user_list
     var dataList = result["data"];
     if (dataList is! List) {
-      print("抖音搜索结果格式不正确: ${dataList.runtimeType}");
       return LiveSearchRoomResult(hasMore: false, items: items);
     }
     
@@ -868,7 +876,7 @@ class DouyinSite implements LiveSite {
               );
               items.add(roomItem);
             } catch (e) {
-              print("解析用户项失败: $e");
+              // 解析用户项失败，跳过
               continue;
             }
           }
@@ -949,7 +957,7 @@ class DouyinSite implements LiveSite {
           items.add(roomItem);
         }
       } catch (e) {
-        print("解析搜索结果项失败: $e");
+        // 解析搜索结果项失败，跳过
         continue;
       }
     }
@@ -1046,7 +1054,6 @@ class DouyinSite implements LiveSite {
     
     var dataList = result["data"];
     if (dataList is! List) {
-      print("抖音搜索主播结果格式不正确");
       return LiveSearchAnchorResult(hasMore: false, items: items);
     }
     
@@ -1073,7 +1080,7 @@ class DouyinSite implements LiveSite {
               );
               items.add(anchorItem);
             } catch (e) {
-              print("解析主播项失败: $e");
+              // 解析主播项失败，跳过
               continue;
             }
           }
@@ -1156,7 +1163,7 @@ class DouyinSite implements LiveSite {
           items.add(anchorItem);
         }
       } catch (e) {
-        print("解析主播搜索结果项失败: $e");
+        // 解析主播搜索结果项失败，跳过
         continue;
       }
     }
