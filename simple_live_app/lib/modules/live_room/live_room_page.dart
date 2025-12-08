@@ -754,9 +754,12 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                         item.roomId,
                       );
                     },
-                    onLongPress: () {
+                    onLongPress: (Platform.isAndroid || Platform.isIOS) ? () {
                       showFollowUserOptionsInRoom(item);
-                    },
+                    } : null,
+                    onSecondaryTap: (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ? () {
+                      showFollowUserOptionsInRoom(item);
+                    } : null,
                   ),
                 );
               },
