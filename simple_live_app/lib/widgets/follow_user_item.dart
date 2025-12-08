@@ -13,12 +13,14 @@ class FollowUserItem extends StatelessWidget {
   final Function()? onRemove;
   final Function()? onTap;
   final Function()? onLongPress;
+  final Function()? onSecondaryTap;
   final bool playing;
   const FollowUserItem({
     required this.item,
     this.onRemove,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.playing = false,
     Key? key,
   }) : super(key: key);
@@ -26,8 +28,12 @@ class FollowUserItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var site = Sites.allSites[item.siteId]!;
-    return ListTile(
-      contentPadding: AppStyle.edgeInsetsL16.copyWith(right: 4),
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      onSecondaryTap: onSecondaryTap,
+      child: ListTile(
+        contentPadding: AppStyle.edgeInsetsL16.copyWith(right: 4),
       leading: NetImage(
         item.face,
         width: 48,
@@ -145,8 +151,7 @@ class FollowUserItem extends StatelessWidget {
                   },
                   icon: const Icon(Remix.dislike_line),
                 )),
-      onTap: onTap,
-      onLongPress: onLongPress,
+      ),
     );
   }
 
