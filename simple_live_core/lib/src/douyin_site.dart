@@ -689,31 +689,25 @@ class DouyinSite implements LiveSite {
   Future<LiveSearchRoomResult> searchRooms(String keyword,
       {int page = 1}) async {
     
-    // 使用抖音专用的直播搜索接口
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
+    // 使用抖音通用搜索接口
+    String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/single/";
     var uri = Uri.parse(serverUrl)
         .replace(scheme: "https", port: 443, queryParameters: {
       "device_platform": "webapp",
       "aid": "6383",
       "channel": "channel_pc_web",
-      "search_channel": "aweme_live",  // 专用直播搜索频道
+      "search_channel": "aweme_general",
       "keyword": keyword,
-      "search_source": "switch_tab",  // 从tab切换来的
+      "search_source": "tab_search",
       "query_correct_type": "1",
       "is_filter_search": "0",
       "from_group_id": "",
-      "disable_rs": "0",
-      "offset": ((page - 1) * 15).toString(),  // 每页15个
+      "offset": ((page - 1) * 15).toString(),
       "count": "15",
-      "need_filter_settings": "1",
-      "list_type": "multi",
-      "pc_search_top_1_params": "{\"enable_ai_search_top_1\":1}",
+      "need_filter_settings": "0",
+      "list_type": "single",
       "update_version_code": "170400",
       "pc_client_type": "1",
-      "pc_libra_divert": "Windows",
-      "support_h265": "1",
-      "support_dash": "1",
-      "cpu_core_num": "12",
       "version_code": "170400",
       "version_name": "17.4.0",
       "cookie_enabled": "true",
@@ -733,7 +727,8 @@ class DouyinSite implements LiveSite {
       "downlink": "10",
       "effective_type": "4g",
       "round_trip_time": "50",
-      "webid": "7504325054068213283",
+      // 添加tab_name参数指定搜索直播
+      "tab_name": "live",
     });
     
     
@@ -843,18 +838,28 @@ class DouyinSite implements LiveSite {
       return LiveSearchRoomResult(hasMore: false, items: items);
     }
     
-    // 打印返回数据结构（仅在调试时启用）
-    // print("抖音直播搜索返回数据结构: ${json.encode(result).substring(0, 500)}...");
+    // 打印返回数据结构（调试用）
+    print("抖音直播搜索返回数据结构: ${json.encode(result).substring(0, min(500, json.encode(result).length))}...");
     
-    // 新的API返回格式：data是一个数组，每个元素包含type和user_list
-    var dataList = result["data"];
-    if (dataList is! List) {
-      // 尝试其他可能的数据结构
-      if (result["data"] is Map && result["data"]["data"] != null) {
+    // 通用搜索API返回格式可能不同，需要适配
+    List dataList = [];
+    if (result["data"] is List) {
+      dataList = result["data"];
+    } else if (result["data"] is Map) {
+      // 尝试从Map中提取数据列表
+      if (result["data"]["data"] != null) {
         dataList = result["data"]["data"];
-      } else {
-        return LiveSearchRoomResult(hasMore: false, items: items);
+      } else if (result["data"]["list"] != null) {
+        dataList = result["data"]["list"];
+      } else if (result["data"]["aweme_list"] != null) {
+        dataList = result["data"]["aweme_list"];
+      } else if (result["data"]["live_list"] != null) {
+        dataList = result["data"]["live_list"];
       }
+    }
+    
+    if (dataList.isEmpty) {
+      return LiveSearchRoomResult(hasMore: false, items: items);
     }
     
     for (var item in dataList) {
@@ -1039,31 +1044,25 @@ class DouyinSite implements LiveSite {
   @override
   Future<LiveSearchAnchorResult> searchAnchors(String keyword,
       {int page = 1}) async {
-    // 使用抖音专用的直播搜索接口（与searchRooms共用）
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
+    // 使用与searchRooms相同的搜索接口
+    String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/single/";
     var uri = Uri.parse(serverUrl)
         .replace(scheme: "https", port: 443, queryParameters: {
       "device_platform": "webapp",
       "aid": "6383",
       "channel": "channel_pc_web",
-      "search_channel": "aweme_live",  // 专用直播搜索频道
+      "search_channel": "aweme_general",
       "keyword": keyword,
-      "search_source": "switch_tab",  // 从tab切换来的
+      "search_source": "tab_search",
       "query_correct_type": "1",
       "is_filter_search": "0",
       "from_group_id": "",
-      "disable_rs": "0",
-      "offset": ((page - 1) * 15).toString(),  // 每页15个
+      "offset": ((page - 1) * 15).toString(),
       "count": "15",
-      "need_filter_settings": "1",
-      "list_type": "multi",
-      "pc_search_top_1_params": "{\"enable_ai_search_top_1\":1}",
+      "need_filter_settings": "0",
+      "list_type": "single",
       "update_version_code": "170400",
       "pc_client_type": "1",
-      "pc_libra_divert": "Windows",
-      "support_h265": "1",
-      "support_dash": "1",
-      "cpu_core_num": "12",
       "version_code": "170400",
       "version_name": "17.4.0",
       "cookie_enabled": "true",
@@ -1083,7 +1082,7 @@ class DouyinSite implements LiveSite {
       "downlink": "10",
       "effective_type": "4g",
       "round_trip_time": "50",
-      "webid": "7504325054068213283",
+      "tab_name": "live",
     });
     var requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
     
@@ -1123,16 +1122,27 @@ class DouyinSite implements LiveSite {
     }
     
     // 打印返回数据结构（仅在调试时启用）
-    // print("抖音主播搜索返回数据结构: ${json.encode(result).substring(0, 500)}...");
+    // print("抖音主播搜索返回数据结构: ${json.encode(result).substring(0, min(500, json.encode(result).length))}...");
     
-    var dataList = result["data"];
-    if (dataList is! List) {
-      // 尝试其他可能的数据结构
-      if (result["data"] is Map && result["data"]["data"] != null) {
+    // 通用搜索API返回格式可能不同，需要适配
+    List dataList = [];
+    if (result["data"] is List) {
+      dataList = result["data"];
+    } else if (result["data"] is Map) {
+      // 尝试从Map中提取数据列表
+      if (result["data"]["data"] != null) {
         dataList = result["data"]["data"];
-      } else {
-        return LiveSearchAnchorResult(hasMore: false, items: items);
+      } else if (result["data"]["list"] != null) {
+        dataList = result["data"]["list"];
+      } else if (result["data"]["aweme_list"] != null) {
+        dataList = result["data"]["aweme_list"];
+      } else if (result["data"]["live_list"] != null) {
+        dataList = result["data"]["live_list"];
       }
+    }
+    
+    if (dataList.isEmpty) {
+      return LiveSearchAnchorResult(hasMore: false, items: items);
     }
     
     for (var item in dataList) {
