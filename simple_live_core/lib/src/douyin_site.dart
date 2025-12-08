@@ -761,19 +761,11 @@ class DouyinSite implements LiveSite {
       print("堆栈信息: $stackTrace");
       throw Exception("抖音搜索签名失败: $e");
     }
-    var headResp = await HttpClient.instance
-        .head('https://live.douyin.com', header: headers);
-    var dyCookie = "";
-    headResp.headers["set-cookie"]?.forEach((element) {
-      var cookie = element.split(";")[0];
-      if (cookie.contains("ttwid")) {
-        dyCookie += "$cookie;";
-      }
-      if (cookie.contains("__ac_nonce")) {
-        dyCookie += "$cookie;";
-      }
-    });
-
+    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
+    var requestHeaders = await getRequestHeaders();
+    var dyCookie = requestHeaders["cookie"] ?? "";
+    
+    print("抖音搜索房间 - 使用的Cookie: ${dyCookie.length > 100 ? dyCookie.substring(0, 100) + '...' : dyCookie}");
     print("抖音搜索房间 - 开始发送GET请求...");
     
     dynamic result;
@@ -804,7 +796,17 @@ class DouyinSite implements LiveSite {
       print("抖音搜索房间 - 发送GET请求失败");
       print("错误类型: ${e.runtimeType}");
       print("错误详情: $e");
+      print("请求URL: $requlestUrl");
       print("堆栈信息: $stackTrace");
+      
+      // 提供更友好的错误提示
+      if (e.toString().contains('444')) {
+        throw Exception("抖音搜索请求频率过高（444），请稍后再试\n建议：在「我的-账号管理」中设置自己的抖音Cookie");
+      } else if (e.toString().contains('403')) {
+        throw Exception("抖音搜索被限制（403），请稍后再试");
+      } else if (e.toString().contains('SocketException') || e.toString().contains('Connection')) {
+        throw Exception("网络连接失败，请检查网络连接");
+      }
       throw Exception("抖音搜索请求失败: $e");
     }
     
@@ -994,18 +996,10 @@ class DouyinSite implements LiveSite {
       "webid": "7504325054068213283",
     });
     var requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-    var headResp = await HttpClient.instance
-        .head('https://live.douyin.com', header: headers);
-    var dyCookie = "";
-    headResp.headers["set-cookie"]?.forEach((element) {
-      var cookie = element.split(";")[0];
-      if (cookie.contains("ttwid")) {
-        dyCookie += "$cookie;";
-      }
-      if (cookie.contains("__ac_nonce")) {
-        dyCookie += "$cookie;";
-      }
-    });
+    
+    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
+    var requestHeaders = await getRequestHeaders();
+    var dyCookie = requestHeaders["cookie"] ?? "";
 
     var result = await HttpClient.instance.getJson(
       requlestUrl,
