@@ -754,9 +754,8 @@ class DouyinSite implements LiveSite {
       requlestUrl = uri.toString();
       print("抖音搜索 - 签名失败，使用原URL");
     }
-    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
-    var requestHeaders = await getRequestHeaders();
-    var dyCookie = requestHeaders["cookie"] ?? "";
+    // 直接使用默认的 ttwid，更稳定
+    var dyCookie = kDefaultCookie;
     
     print("抖音搜索房间 - 使用的Cookie: ${dyCookie.length > 100 ? dyCookie.substring(0, 100) + '...' : dyCookie}");
     print("抖音搜索房间 - 开始发送GET请求...");
@@ -990,9 +989,8 @@ class DouyinSite implements LiveSite {
       requlestUrl = uri.toString();
     }
     
-    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
-    var requestHeaders = await getRequestHeaders();
-    var dyCookie = requestHeaders["cookie"] ?? "";
+    // 直接使用默认的 ttwid，更稳定
+    var dyCookie = kDefaultCookie;
 
     dynamic result;
     try {
