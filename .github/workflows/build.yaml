@@ -43,6 +43,10 @@ jobs:
       - name: Install simple_live_app dependencies
         working-directory: simple_live_app
         run: flutter pub get
+        
+      - name: Run build_runner
+        working-directory: simple_live_app
+        run: dart run build_runner build --delete-conflicting-outputs
           
       - name: Install CocoaPods
         working-directory: simple_live_app/ios
@@ -89,6 +93,12 @@ jobs:
         working-directory: simple_live_app
         run: flutter clean
           
+      - name: Clear Dart/Flutter caches
+        run: |
+          flutter pub cache clean --force
+          dart pub cache clean --force
+        continue-on-error: true
+          
       - name: Install simple_live_core dependencies
         working-directory: simple_live_core
         run: flutter pub get
@@ -96,6 +106,10 @@ jobs:
       - name: Install simple_live_app dependencies
         working-directory: simple_live_app
         run: flutter pub get
+        
+      - name: Run build_runner
+        working-directory: simple_live_app
+        run: dart run build_runner build --delete-conflicting-outputs
         
       - name: Build Windows
         working-directory: simple_live_app
@@ -135,11 +149,26 @@ jobs:
       - name: Enable Flutter Desktop
         run: flutter config --enable-macos-desktop
 
+      # 清理构建缓存
+      - name: Clean macOS build
+        working-directory: simple_live_app
+        run: flutter clean
+        
+      # 安装 simple_live_core 依赖
+      - name: Install simple_live_core dependencies
+        working-directory: simple_live_core
+        run: flutter pub get
+        
       # 更新Flutter的packages
       - name: Restore packages
         run: |
           cd simple_live_app
           flutter pub get
+          
+      # 运行 build_runner
+      - name: Run build_runner
+        working-directory: simple_live_app
+        run: dart run build_runner build --delete-conflicting-outputs
 
       # 安装appdmg
       - name: Install appdmg
