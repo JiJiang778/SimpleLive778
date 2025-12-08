@@ -838,8 +838,7 @@ class DouyinSite implements LiveSite {
       return LiveSearchRoomResult(hasMore: false, items: items);
     }
     
-    // 打印返回数据结构（调试用）
-    print("抖音直播搜索返回数据结构: ${json.encode(result).substring(0, min(500, json.encode(result).length))}...");
+    // 不输出控制台日志
     
     // 通用搜索API返回格式可能不同，需要适配
     List dataList = [];
@@ -1037,6 +1036,21 @@ class DouyinSite implements LiveSite {
         continue;
       }
     }
+    
+    // 如果没有找到任何直播间，抛出包含响应数据的异常以便调试
+    if (items.isEmpty && dataList.isNotEmpty) {
+      // 构建调试信息
+      var debugInfo = "抖音搜索未找到直播间，响应数据：\n";
+      debugInfo += "关键词: $keyword, 页码: $page\n";
+      debugInfo += "dataList长度: ${dataList.length}\n";
+      if (dataList.isNotEmpty) {
+        var firstItem = dataList[0];
+        debugInfo += "第一条数据类型: ${firstItem["type"]}\n";
+        debugInfo += "数据样例(前500字符): ${json.encode(firstItem).substring(0, min(500, json.encode(firstItem).length))}";
+      }
+      throw Exception(debugInfo);
+    }
+    
     // 直播搜索API每页返回15条，判断是否还有更多数据
     return LiveSearchRoomResult(hasMore: items.length >= 15, items: items);
   }
@@ -1121,8 +1135,7 @@ class DouyinSite implements LiveSite {
       return LiveSearchAnchorResult(hasMore: false, items: items);
     }
     
-    // 打印返回数据结构（仅在调试时启用）
-    // print("抖音主播搜索返回数据结构: ${json.encode(result).substring(0, min(500, json.encode(result).length))}...");
+    // 不输出控制台日志
     
     // 通用搜索API返回格式可能不同，需要适配
     List dataList = [];
@@ -1291,6 +1304,21 @@ class DouyinSite implements LiveSite {
         continue;
       }
     }
+    
+    // 如果没有找到任何主播，抛出包含响应数据的异常以便调试
+    if (items.isEmpty && dataList.isNotEmpty) {
+      // 构建调试信息
+      var debugInfo = "抖音主播搜索未找到结果，响应数据：\n";
+      debugInfo += "关键词: $keyword, 页码: $page\n";
+      debugInfo += "dataList长度: ${dataList.length}\n";
+      if (dataList.isNotEmpty) {
+        var firstItem = dataList[0];
+        debugInfo += "第一条数据类型: ${firstItem["type"]}\n";
+        debugInfo += "数据样例(前500字符): ${json.encode(firstItem).substring(0, min(500, json.encode(firstItem).length))}";
+      }
+      throw Exception(debugInfo);
+    }
+    
     // 直播搜索API每页返回15条，判断是否还有更多数据
     return LiveSearchAnchorResult(hasMore: items.length >= 15, items: items);
   }
