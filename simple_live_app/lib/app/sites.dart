@@ -14,7 +14,7 @@ class Sites {
       id: Constant.kDouyu,
       logo: "assets/images/douyu.png",
       name: "斗鱼直播",
-      liveSite: DouyuSite()..setDouyuSignFunction(DouyuSign.getSign),
+      liveSite: DouyuSite(),
     ),
     Constant.kHuya: Site(
       id: Constant.kHuya,
