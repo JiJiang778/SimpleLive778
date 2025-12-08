@@ -987,122 +987,46 @@ class DouyinSite implements LiveSite {
             continue;
           }
           
-          // 获取标题
-          if (liveRoom != null && liveRoom["title"] != null) {
-            title = liveRoom["title"].toString();
-          } else if (liveInfo != null && liveInfo["title"] != null) {
-            title = liveInfo["title"].toString();
-          }
-          
-          // 获取封面
-          if (liveRoom != null && liveRoom["cover"] != null) {
-            var coverData = liveRoom["cover"];
-            if (coverData is Map && coverData["url_list"] != null) {
-              var urlList = coverData["url_list"];
-              if (urlList is List && urlList.isNotEmpty) {
-                cover = urlList[0].toString();
-              }
-            } else if (coverData is String) {
-              cover = coverData;
-            }
-          }
-          
-          // 获取用户名
-          if (liveUser != null && liveUser["nickname"] != null) {
-            userName = liveUser["nickname"].toString();
-          } else if (liveRoom != null && liveRoom["owner"] != null && liveRoom["owner"]["nickname"] != null) {
-            userName = liveRoom["owner"]["nickname"].toString();
-          }
-          
-          // 获取在线人数
-          if (liveRoom != null && liveRoom["user_count"] != null) {
-            online = int.tryParse(liveRoom["user_count"].toString()) ?? 0;
-          }
-          
-          var roomItem = LiveRoomItem(
-            roomId: roomId,
-            title: title ?? userName ?? "",
-            cover: cover ?? "",
-            userName: userName ?? "",
-            online: online,
-          );
-          items.add(roomItem);
-        }
-        // 兼容旧格式
-        else {
-          Map<String, dynamic>? liveData;
-          
-          if (item["live_info"] != null) {
-            liveData = item["live_info"];
-          } else if (item["lives"] != null && item["lives"]["rawdata"] != null) {
-            var rawdata = item["lives"]["rawdata"];
-            liveData = rawdata is String ? json.decode(rawdata) : rawdata;
-          } else if (item["room"] != null) {
-            liveData = item["room"];
-          } else if (item["aweme_info"] != null) {
-            liveData = item["aweme_info"];
-          }
-          
-          if (liveData == null) {
-            continue;
-          }
-        
-        // 获取房间信息
-        String? roomId;
-        String? title;
-        String? cover; 
-        String? userName;
-        int? online;
-        
-        // 尝试获取roomId
-        if (liveData["owner"] != null && liveData["owner"]["web_rid"] != null) {
-          roomId = liveData["owner"]["web_rid"].toString();
-          userName = liveData["owner"]["nickname"]?.toString();
-        } else if (liveData["room_id"] != null) {
-          roomId = liveData["room_id"].toString();
-        } else if (liveData["id_str"] != null) {
-          roomId = liveData["id_str"].toString();
-        }
-        
-        if (roomId == null || roomId.isEmpty) {
-          continue;
-        }
-        
         // 获取标题
-        title = liveData["title"]?.toString() ?? 
-                liveData["room_title"]?.toString() ?? "";
+        if (liveRoom != null && liveRoom["title"] != null) {
+          title = liveRoom["title"].toString();
+        } else if (liveInfo != null && liveInfo["title"] != null) {
+          title = liveInfo["title"].toString();
+        }
         
         // 获取封面
-        if (liveData["cover"] != null && liveData["cover"]["url_list"] != null) {
-          var urlList = liveData["cover"]["url_list"];
-          if (urlList is List && urlList.isNotEmpty) {
-            cover = urlList[0].toString();
+        if (liveRoom != null && liveRoom["cover"] != null) {
+          var coverData = liveRoom["cover"];
+          if (coverData is Map && coverData["url_list"] != null) {
+            var urlList = coverData["url_list"];
+            if (urlList is List && urlList.isNotEmpty) {
+              cover = urlList[0].toString();
+            }
+          } else if (coverData is String) {
+            cover = coverData;
           }
-        } else if (liveData["room_cover"] != null) {
-          cover = liveData["room_cover"].toString();
         }
         
         // 获取用户名
-        if (userName == null && liveData["anchor_name"] != null) {
-          userName = liveData["anchor_name"].toString();
+        if (liveUser != null && liveUser["nickname"] != null) {
+          userName = liveUser["nickname"].toString();
+        } else if (liveRoom != null && liveRoom["owner"] != null && liveRoom["owner"]["nickname"] != null) {
+          userName = liveRoom["owner"]["nickname"].toString();
         }
         
         // 获取在线人数
-        if (liveData["stats"] != null && liveData["stats"]["total_user"] != null) {
-          online = int.tryParse(liveData["stats"]["total_user"].toString()) ?? 0;
-        } else if (liveData["user_count"] != null) {
-          online = int.tryParse(liveData["user_count"].toString()) ?? 0;
+        if (liveRoom != null && liveRoom["user_count"] != null) {
+          online = int.tryParse(liveRoom["user_count"].toString()) ?? 0;
         }
         
-          var roomItem = LiveRoomItem(
-            roomId: roomId,
-            title: title,
-            cover: cover ?? "",
-            userName: userName ?? "",
-            online: online ?? 0,
-          );
-          items.add(roomItem);
-        }
+        var roomItem = LiveRoomItem(
+          roomId: roomId,
+          title: title ?? userName ?? "",
+          cover: cover ?? "",
+          userName: userName ?? "",
+          online: online,
+        );
+        items.add(roomItem);
       } catch (e) {
         // 解析搜索结果项失败，跳过
         continue;
