@@ -85,29 +85,58 @@ class BiliBiliDanmaku implements LiveDanmaku {
       debugInfo.writeln("Windows游客模式（功能受限）");
     }
     
-    print(debugInfo.toString());
+    // 不输出控制台日志
     
     // 根据blivedm最新代码构建WebSocket URL
     String wsUrl;
-    print("连接B站弹幕服务器: ${args.serverHost}");
+    List<String> backupUrls;
     
-    if (args.serverHost.contains(':')) {
-      // 如果serverHost已经包含端口，直接使用
-      wsUrl = "wss://${args.serverHost}/sub";
+    // iOS平台使用特殊端口2243
+    if (Platform.isIOS) {
+      // iOS优先使用的服务器列表
+      var iosPreferredHosts = [
+        "zj-cn-live-comet.chat.bilibili.com",
+        "broadcastlv.chat.bilibili.com",
+        "bd-gz-live-comet-07.chat.bilibili.com"
+      ];
+      
+      // 从args.serverHost中提取主机名
+      String hostName = args.serverHost.split(':')[0];
+      
+      // 如果是iOS优选服务器，使用该服务器
+      if (iosPreferredHosts.contains(hostName)) {
+        wsUrl = "wss://$hostName:2243/sub";
+      } else if (args.serverHost.isNotEmpty) {
+        // 使用提供的服务器，但使用iOS端口
+        wsUrl = "wss://$hostName:2243/sub";
+      } else {
+        // 默认使用第一个iOS服务器
+        wsUrl = "wss://zj-cn-live-comet.chat.bilibili.com:2243/sub";
+      }
+      
+      // iOS备用服务器，端口2243
+      backupUrls = [
+        "wss://broadcastlv.chat.bilibili.com:2243/sub",
+        "wss://zj-cn-live-comet.chat.bilibili.com:2243/sub",
+        "wss://bd-gz-live-comet-07.chat.bilibili.com:2243/sub",
+      ];
     } else {
-      // 否则添加默认端口443
-      wsUrl = "wss://${args.serverHost}:443/sub";
+      // 其他平台使用端口443
+      if (args.serverHost.contains(':')) {
+        // 如果serverHost已经包含端口，直接使用
+        wsUrl = "wss://${args.serverHost}/sub";
+      } else {
+        // 否则添加默认端口443
+        wsUrl = "wss://${args.serverHost}:443/sub";
+      }
+      
+      // 其他平台备用服务器，端口443
+      backupUrls = [
+        "wss://broadcastlv.chat.bilibili.com:443/sub",
+        "wss://tx-sh-live-comet-08.chat.bilibili.com:443/sub",
+        "wss://tx-bj-live-comet-08.chat.bilibili.com:443/sub",
+      ];
     }
-    
-    // 设置备用服务器，端口443
-    List<String> backupUrls = [
-      "wss://broadcastlv.chat.bilibili.com:443/sub",
-      "wss://tx-sh-live-comet-08.chat.bilibili.com:443/sub",
-      "wss://tx-bj-live-comet-08.chat.bilibili.com:443/sub",
-    ];
-    
-    print("主服务器: $wsUrl");
-    print("备用服务器: ${backupUrls.first}");
     
     // iOS平台使用特定的User-Agent和Headers
     Map<String, dynamic> headers = {
@@ -146,9 +175,7 @@ class BiliBiliDanmaku implements LiveDanmaku {
       },
       onClose: (e) {
         var errorMsg = e.toString();
-        print("B站弹幕连接失败: $errorMsg");
-        print("Cookie 状态: ${args.cookie.isNotEmpty ? '已设置' : '未设置'}");
-        print("SESSDATA 状态: ${args.cookie.contains('SESSDATA') ? '存在' : '不存在'}");
+        // 不输出控制台日志
         
         // 只在真正未登录时提示游客模式
         if (args.cookie.isEmpty || !args.cookie.contains("SESSDATA")) {
@@ -175,10 +202,7 @@ class BiliBiliDanmaku implements LiveDanmaku {
   }
 
   void joinRoom(BiliBiliDanmakuArgs args) {
-    print("B站弹幕 - 准备加入房间: ${args.roomId}");
-    print("B站弹幕 - UID: ${args.uid}");
-    print("B站弹幕 - Token: ${args.token.substring(0, 20)}...");
-    print("B站弹幕 - Buvid: ${args.buvid}");
+    // 不输出控制台日志
     
     var joinData = encodeData(
       json.encode({
@@ -192,14 +216,12 @@ class BiliBiliDanmaku implements LiveDanmaku {
       }),
       7,
     );
-    print("B站弹幕 - 加入房间请求数据: ${utf8.decode(joinData)}");
     webScoketUtils?.sendMessage(joinData);
-    print("B站弹幕 - 已发送加入房间请求");
   }
 
   @override
   void heartbeat() {
-    print("B站弹幕 - 发送心跳包");
+    // 不输出控制台日志
     webScoketUtils?.sendMessage(encodeData(
       "",
       2,
@@ -271,7 +293,7 @@ class BiliBiliDanmaku implements LiveDanmaku {
           try {
             body = Uint8List.fromList(brotli.decode(body));
           } catch (e) {
-            print("Brotli解码失败: $e");
+            // Brotli解码失败，不输出日志
             return;
           }
         }
