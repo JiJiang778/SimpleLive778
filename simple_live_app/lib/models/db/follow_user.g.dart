@@ -16,6 +16,7 @@ class FollowUserAdapter extends TypeAdapter<FollowUser> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
+    // 兼容旧版本数据（可能只有 7 个字段）
     return FollowUser(
       id: fields[0] as String,
       roomId: fields[1] as String,
@@ -23,9 +24,9 @@ class FollowUserAdapter extends TypeAdapter<FollowUser> {
       userName: fields[3] as String,
       face: fields[4] as String,
       addTime: fields[5] as DateTime,
-      tag: fields[6] as String,
-      pinned: fields[7] as bool,
-      pinnedTime: fields[8] as DateTime?,
+      tag: fields.containsKey(6) ? (fields[6] as String? ?? "全部") : "全部",
+      pinned: fields.containsKey(7) ? (fields[7] as bool? ?? false) : false,
+      pinnedTime: fields.containsKey(8) ? fields[8] as DateTime? : null,
     );
   }
 
