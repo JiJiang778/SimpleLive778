@@ -72,6 +72,11 @@ jobs:
       - name: Run build_runner
         working-directory: simple_live_app
         run: dart run build_runner build --delete-conflicting-outputs
+        
+      - name: Fix FollowUser adapter for backward compatibility
+        working-directory: simple_live_app
+        run: dart run scripts/fix_follow_user_adapter.dart
+        continue-on-error: false
           
       - name: Install CocoaPods
         working-directory: simple_live_app/ios
@@ -152,6 +157,10 @@ jobs:
       - name: Run build_runner
         working-directory: simple_live_app
         run: dart run build_runner build --delete-conflicting-outputs
+        
+      - name: Fix FollowUser adapter for backward compatibility
+        working-directory: simple_live_app
+        run: dart run scripts/fix_follow_user_adapter.dart
         
       - name: Build Windows
         working-directory: simple_live_app
@@ -237,6 +246,11 @@ jobs:
       - name: Run build_runner
         working-directory: simple_live_app
         run: dart run build_runner build --delete-conflicting-outputs
+        
+      # 修复FollowUser适配器以支持旧版本数据
+      - name: Fix FollowUser adapter for backward compatibility
+        working-directory: simple_live_app
+        run: dart run scripts/fix_follow_user_adapter.dart
 
       # 安装appdmg
       - name: Install appdmg
