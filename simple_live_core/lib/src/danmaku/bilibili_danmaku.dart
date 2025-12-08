@@ -57,23 +57,35 @@ class BiliBiliDanmaku implements LiveDanmaku {
   Future start(dynamic args) async {
     danmakuArgs = args as BiliBiliDanmakuArgs;
     
-    print("=== B站弹幕连接信息 ===");
-    print("平台: ${Platform.operatingSystem}");
-    print("房间ID: ${args.roomId}");
-    print("服务器: ${args.serverHost}");
-    print("UID: ${args.uid}");
-    print("Buvid: ${args.buvid}");
-    print("Token 长度: ${args.token.length}");
-    print("Cookie 长度: ${args.cookie.length}");
-    print("SESSDATA 存在: ${args.cookie.contains('SESSDATA')}");
-    if (args.cookie.isNotEmpty) {
-      print("Cookie 前100字符: ${args.cookie.substring(0, args.cookie.length > 100 ? 100 : args.cookie.length)}");
+    // 构建调试信息
+    var debugInfo = StringBuffer();
+    debugInfo.writeln("=== B站弹幕连接信息 ===");
+    debugInfo.writeln("平台: ${Platform.operatingSystem}");
+    debugInfo.writeln("房间ID: ${args.roomId}");
+    debugInfo.writeln("服务器: ${args.serverHost}");
+    debugInfo.writeln("UID: ${args.uid}");
+    debugInfo.writeln("Buvid: ${args.buvid.isNotEmpty ? '已设置' : '未设置'}");
+    debugInfo.writeln("Token: ${args.token.isNotEmpty ? '已获取' : '未获取'}");
+    debugInfo.writeln("Cookie: ${args.cookie.isNotEmpty ? '已设置' : '未设置'}");
+    debugInfo.writeln("SESSDATA: ${args.cookie.contains('SESSDATA') ? '存在' : '不存在'}");
+    
+    // iOS特殊处理
+    if (Platform.isIOS) {
+      debugInfo.writeln("iOS平台特殊说明:");
+      if (args.cookie.isEmpty || !args.cookie.contains('SESSDATA')) {
+        debugInfo.writeln("❌ 未登录B站账号，iOS需要登录才能查看弹幕");
+        onClose?.call("iOS平台需要登录B站账号才能查看弹幕\n请在「我的-账号管理」中登录");
+        return;
+      }
+      debugInfo.writeln("✓ 已登录B站账号");
     }
     
-    // 检查 Cookie 是否包含必要字段
-    if (args.cookie.isNotEmpty && !args.cookie.contains('SESSDATA')) {
-      print("警告: Cookie 中缺少 SESSDATA 字段，可能无法连接弹幕");
+    // Windows可以游客模式，但iOS不行
+    if (Platform.isWindows && (args.cookie.isEmpty || !args.cookie.contains('SESSDATA'))) {
+      debugInfo.writeln("Windows游客模式（功能受限）");
     }
+    
+    print(debugInfo.toString());
     
     // 根据blivedm最新代码构建WebSocket URL
     String wsUrl;
@@ -97,15 +109,28 @@ class BiliBiliDanmaku implements LiveDanmaku {
     print("主服务器: $wsUrl");
     print("备用服务器: ${backupUrls.first}");
     
+    // iOS平台使用特定的User-Agent和Headers
+    Map<String, dynamic> headers = {
+      "Origin": "https://live.bilibili.com",
+    };
+    
+    if (Platform.isIOS) {
+      // 使用最新的iOS 17.5.1 User-Agent
+      headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+    } else {
+      // 使用最新的Edge 142 User-Agent
+      headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0";
+    }
+    
+    if (args.cookie.isNotEmpty) {
+      headers["Cookie"] = args.cookie;
+    }
+    
     webScoketUtils = WebScoketUtils(
       url: wsUrl,
       backupUrl: backupUrls.first,
       heartBeatTime: heartbeatTime,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36",
-        "Origin": "https://live.bilibili.com",
-        if (args.cookie.isNotEmpty) "Cookie": args.cookie,
-      },
+      headers: headers,
       onMessage: (e) {
         decodeMessage(e);
       },
@@ -136,6 +161,10 @@ class BiliBiliDanmaku implements LiveDanmaku {
           onClose?.call("弹幕连接失败：网络连接中断。\n请检查网络连接。");
         } else if (errorMsg.contains("401") || errorMsg.contains("403")) {
           onClose?.call("弹幕连接失败：身份验证失败。\nCookie 可能已过期，请重新登录B站账号。");
+        } else if (errorMsg.contains("WebSocketException")) {
+          onClose?.call("弹幕连接失败：WebSocket 连接异常。\n请检查网络连接。");
+        } else if (errorMsg.contains("FormatException")) {
+          onClose?.call("弹幕连接失败：数据格式异常。\n请检查网络连接。");
         } else {
           // 其他错误，显示详细信息
           onClose?.call("弹幕服务器连接失败：$errorMsg");
@@ -163,12 +192,14 @@ class BiliBiliDanmaku implements LiveDanmaku {
       }),
       7,
     );
+    print("B站弹幕 - 加入房间请求数据: ${utf8.decode(joinData)}");
     webScoketUtils?.sendMessage(joinData);
     print("B站弹幕 - 已发送加入房间请求");
   }
 
   @override
   void heartbeat() {
+    print("B站弹幕 - 发送心跳包");
     webScoketUtils?.sendMessage(encodeData(
       "",
       2,
