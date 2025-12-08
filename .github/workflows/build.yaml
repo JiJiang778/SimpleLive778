@@ -2,11 +2,25 @@ name: Build
 
 on:
   workflow_dispatch:
+    inputs:
+      build_ios:
+        description: 'Build iOS'
+        type: boolean
+        default: true
+      build_windows:
+        description: 'Build Windows'
+        type: boolean
+        default: true
+      build_macos:
+        description: 'Build macOS'
+        type: boolean
+        default: true
 
 jobs:
   build-ios:
     name: Build iOS
     runs-on: macos-14
+    if: ${{ github.event.inputs.build_ios == 'true' }}
     
     steps:
       - name: Checkout code
@@ -104,6 +118,7 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
+    if: ${{ github.event.inputs.build_windows == 'true' }}
     
     steps:
       - name: Checkout code
@@ -181,6 +196,7 @@ jobs:
   build-macos:
     name: Build macOS
     runs-on: macos-14
+    if: ${{ github.event.inputs.build_macos == 'true' }}
     
     steps:
       - name: Checkout code
