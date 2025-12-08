@@ -58,11 +58,17 @@ class BiliBiliDanmaku implements LiveDanmaku {
     danmakuArgs = args as BiliBiliDanmakuArgs;
     
     print("=== B站弹幕连接信息 ===");
+    print("平台: ${Platform.operatingSystem}");
     print("房间ID: ${args.roomId}");
     print("服务器: ${args.serverHost}");
     print("UID: ${args.uid}");
+    print("Buvid: ${args.buvid}");
+    print("Token 长度: ${args.token.length}");
     print("Cookie 长度: ${args.cookie.length}");
     print("SESSDATA 存在: ${args.cookie.contains('SESSDATA')}");
+    if (args.cookie.isNotEmpty) {
+      print("Cookie 前100字符: ${args.cookie.substring(0, args.cookie.length > 100 ? 100 : args.cookie.length)}");
+    }
     
     // 检查 Cookie 是否包含必要字段
     if (args.cookie.isNotEmpty && !args.cookie.contains('SESSDATA')) {
