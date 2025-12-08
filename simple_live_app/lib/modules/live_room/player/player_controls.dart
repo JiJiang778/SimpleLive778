@@ -83,12 +83,18 @@ Widget buildFullControls(
           child: GestureDetector(
             onTap: controller.onTap,
             onDoubleTapDown: controller.onDoubleTap,
-            onLongPress: () {
+            onLongPress: (Platform.isAndroid || Platform.isIOS) ? () {
               if (controller.lockControlsState.value) {
                 return;
               }
               showFollowUser(controller);
-            },
+            } : null,
+            onSecondaryTap: (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ? () {
+              if (controller.lockControlsState.value) {
+                return;
+              }
+              showFollowUser(controller);
+            } : null,
             onVerticalDragStart: controller.onVerticalDragStart,
             onVerticalDragUpdate: controller.onVerticalDragUpdate,
             onVerticalDragEnd: controller.onVerticalDragEnd,
@@ -892,9 +898,12 @@ void showFollowUser(LiveRoomController controller) {
                         item.roomId,
                       );
                     },
-                    onLongPress: () {
+                    onLongPress: (Platform.isAndroid || Platform.isIOS) ? () {
                       showFollowUserOptions(item, controller);
-                    },
+                    } : null,
+                    onSecondaryTap: (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ? () {
+                      showFollowUserOptions(item, controller);
+                    } : null,
                   ),
                 );
               },
