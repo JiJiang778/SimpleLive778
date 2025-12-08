@@ -142,9 +142,6 @@ Future initServices() async {
   DouyinSite().setAbogusUrlFunction(DouyinSign.getAbogusUrl);
   DouyinSite().setSignatureFunction(DouyinSign.getSignature);
   
-  // 设置斗鱼签名函数
-  DouyuSite().setDouyuSignFunction(DouyuSign.getSign);
-  
   initCoreLog();
 }
 
