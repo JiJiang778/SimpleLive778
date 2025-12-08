@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:remixicon/remixicon.dart';
@@ -166,9 +168,12 @@ class FollowUserPage extends GetView<FollowUserController> {
                     AppNavigator.toLiveRoomDetail(
                         site: site, roomId: item.roomId);
                   },
-                  onLongPress: () {
+                  onLongPress: (Platform.isAndroid || Platform.isIOS) ? () {
                     showFollowUserOptions(item);
-                  },
+                  } : null,
+                  onSecondaryTap: (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ? () {
+                    showFollowUserOptions(item);
+                  } : null,
                 );
               },
             ),
