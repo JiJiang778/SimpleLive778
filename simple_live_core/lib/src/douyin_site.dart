@@ -768,6 +768,10 @@ class DouyinSite implements LiveSite {
     print("抖音搜索房间 - 使用的Cookie: ${dyCookie.length > 100 ? dyCookie.substring(0, 100) + '...' : dyCookie}");
     print("抖音搜索房间 - 开始发送GET请求...");
     
+    print("抖音搜索房间 - 开始发送GET请求...");
+    print("请求URL长度: ${requlestUrl.length}");
+    print("Cookie长度: ${dyCookie.length}");
+    
     dynamic result;
     try {
       result = await HttpClient.instance.getJson(
@@ -791,23 +795,31 @@ class DouyinSite implements LiveSite {
           'user-agent': kDefaultUserAgent,
         },
       );
-      print("抖音搜索房间 - 请求成功");
+      print("抖音搜索房间 - HTTP请求成功");
+      print("返回数据类型: ${result.runtimeType}");
     } catch (e, stackTrace) {
-      print("抖音搜索房间 - 发送GET请求失败");
+      print("======== 抖音搜索HTTP请求失败 ========");
       print("错误类型: ${e.runtimeType}");
       print("错误详情: $e");
-      print("请求URL: $requlestUrl");
+      print("请求URL前100字符: ${requlestUrl.substring(0, requlestUrl.length > 100 ? 100 : requlestUrl.length)}");
+      print("Cookie: ${dyCookie.substring(0, dyCookie.length > 100 ? 100 : dyCookie.length)}");
       print("堆栈信息: $stackTrace");
+      print("======================================");
       
       // 提供更友好的错误提示
-      if (e.toString().contains('444')) {
-        throw Exception("抖音搜索请求频率过高（444），请稍后再试\n建议：在「我的-账号管理」中设置自己的抖音Cookie");
-      } else if (e.toString().contains('403')) {
-        throw Exception("抖音搜索被限制（403），请稍后再试");
-      } else if (e.toString().contains('SocketException') || e.toString().contains('Connection')) {
-        throw Exception("网络连接失败，请检查网络连接");
+      var errorStr = e.toString();
+      if (errorStr.contains('444')) {
+        throw Exception("抖音搜索请求频率过高（444）\n建议：在「我的-账号管理」中设置自己的抖音Cookie");
+      } else if (errorStr.contains('403')) {
+        throw Exception("抖音搜索被限制（403）\n请稍后再试或设置自己的Cookie");
+      } else if (errorStr.contains('SocketException')) {
+        throw Exception("网络连接失败\n请检查网络连接");
+      } else if (errorStr.contains('Connection')) {
+        throw Exception("网络连接被中断\n请检查网络连接");
+      } else if (errorStr.contains('TimeoutException')) {
+        throw Exception("请求超时\n请检查网络连接");
       }
-      throw Exception("抖音搜索请求失败: $e");
+      throw Exception("抖音搜索请求失败\n错误: $e");
     }
     
     if (result == "" || result == 'blocked') {
