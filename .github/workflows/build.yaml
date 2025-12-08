@@ -159,7 +159,7 @@ jobs:
       - name: Upload macOS to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mac
+          name: SimpleLive-Mac
           path: |
             simple_live_app/build/dist/*/*.dmg
             simple_live_app/build/dist/*/*.zip
