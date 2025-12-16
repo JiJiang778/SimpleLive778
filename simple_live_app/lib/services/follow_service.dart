@@ -210,6 +210,11 @@ class FollowService extends GetxService {
       while (taskQueue.isNotEmpty) {
         var item = taskQueue.removeFirst();
         await updateLiveStatus(item);
+        
+        // 抖音平台需要额外延迟，避免请求过于频繁
+        if (item.siteId == "douyin") {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
       }
     }
 
@@ -224,26 +229,80 @@ class FollowService extends GetxService {
     Log.logPrint("关注状态更新完成");
   }
 
+  /// 抖音平台重试计数器
+  final Map<String, int> _douyinRetryCount = {};
+  
   Future updateLiveStatus(FollowUser item) async {
     try {
       var site = Sites.allSites[item.siteId]!;
       // 先只查状态
       var isLiving = await site.liveSite.getLiveStatus(roomId: item.roomId);
       item.liveStatus.value = isLiving ? 2 : 1;
+      item.errorMsg = null; // 清除错误信息
+      
+      // 清除重试计数
+      _douyinRetryCount.remove(item.id);
+      
       if (item.liveStatus.value == 2) {
         // 只有正在直播时才查详细信息
-        var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
-        item.liveStartTime = detail.showTime;
+        try {
+          var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
+          item.liveStartTime = detail.showTime;
+          
+          // 更新头像和用户名（如果有变化）
+          bool needUpdate = false;
+          if (detail.userAvatar.isNotEmpty && detail.userAvatar != item.face) {
+            item.face = detail.userAvatar;
+            needUpdate = true;
+          }
+          if (detail.userName.isNotEmpty && detail.userName != item.userName) {
+            item.userName = detail.userName;
+            needUpdate = true;
+          }
+          // 如果有变化，保存到数据库
+          if (needUpdate) {
+            await DBService.instance.updateFollow(item);
+          }
+        } catch (e) {
+          // 获取详情失败不影响直播状态
+          item.liveStartTime = null;
+        }
       } else {
         item.liveStartTime = null;
       }
     } catch (e) {
       Log.logPrint(e);
-      item.liveStatus.value = 0;
+      String errorStr = e.toString();
+      
+      // 如果是请求频繁的错误，尝试重试（仅限抖音）
+      if (item.siteId == "douyin" && 
+          (errorStr.contains("频繁") || errorStr.contains("limit") || errorStr.contains("格式错误"))) {
+        var retryCount = _douyinRetryCount[item.id] ?? 0;
+        if (retryCount < 2) {
+          // 最多重试2次
+          _douyinRetryCount[item.id] = retryCount + 1;
+          // 等待一段时间后重试
+          await Future.delayed(Duration(milliseconds: 500 + retryCount * 500));
+          // 不增加updatedCount，直接重试
+          return await updateLiveStatus(item);
+        }
+        // 重试次数用尽，设置为未知状态
+        item.liveStatus.value = 0;
+        item.errorMsg = "请求过于频繁";
+      } else if (errorStr.contains("频繁") || errorStr.contains("limit")) {
+        item.liveStatus.value = 0; // 未知状态
+        item.errorMsg = "请求过于频繁";
+      } else {
+        // 其他错误，设置为未直播状态
+        item.liveStatus.value = 1;
+        item.errorMsg = null;
+      }
       item.liveStartTime = null;
     } finally {
       updatedCount++;
       if (updatedCount >= followList.length) {
+        // 清空重试计数器
+        _douyinRetryCount.clear();
         filterData();
         updating.value = false;
       }
