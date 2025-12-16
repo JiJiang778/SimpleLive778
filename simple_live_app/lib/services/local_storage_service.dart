@@ -129,6 +129,9 @@ class LocalStorageService extends GetxService {
   /// 抖音cookie
   static const String kDouyinCookie = "DouyinCookie";
 
+  /// 抖音Cookie池（JSON数组格式存储多个ttwid）
+  static const String kDouyinCookiePool = "DouyinCookiePool";
+
 
   ///主题色
   static const String kStyleColor = "kStyleColor";
