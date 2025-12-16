@@ -306,16 +306,28 @@ Widget buildFullControls(
                   const Expanded(child: Center()),
                   Visibility(
                     visible: !Platform.isAndroid && !Platform.isIOS,
-                    child: IconButton(
-                      key: volumeButtonkey,
-                      onPressed: () {
-                        controller
-                            .showVolumeSlider(volumeButtonkey.currentContext!);
-                      },
-                      icon: const Icon(
-                        Icons.volume_down,
-                        size: 24,
-                        color: Colors.white,
+                    child: Obx(
+                      () => IconButton(
+                        key: volumeButtonkey,
+                        onPressed: () {
+                          controller.setPlayerMute();
+                        },
+                        onHover: (_) {
+                          controller.showVolumeSlider(
+                            volumeButtonkey.currentContext!,
+                          );
+                        },
+                        iconSize: 24,
+                        icon: Icon(
+                          switch (AppSettingsController.instance.playerVolume.value) {
+                            0 => Icons.volume_off,
+                            <=35 => Icons.volume_mute,
+                            <=65 => Icons.volume_down,
+                            <=100 => Icons.volume_up,
+                            _ => Icons.volume_down,
+                          },
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -563,17 +575,28 @@ Widget buildControls(
                 const Expanded(child: Center()),
                 Visibility(
                   visible: !Platform.isAndroid && !Platform.isIOS,
-                  child: IconButton(
-                    key: volumeButtonkey,
-                    onPressed: () {
-                      controller.showVolumeSlider(
-                        volumeButtonkey.currentContext!,
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.volume_down,
-                      size: 24,
-                      color: Colors.white,
+                  child: Obx(
+                    () => IconButton(
+                      key: volumeButtonkey,
+                      onPressed: () {
+                        controller.setPlayerMute();
+                      },
+                      onHover: (_) {
+                        controller.showVolumeSlider(
+                          volumeButtonkey.currentContext!,
+                        );
+                      },
+                      iconSize: 24,
+                      icon: Icon(
+                        switch (AppSettingsController.instance.playerVolume.value) {
+                          0 => Icons.volume_off,
+                          <=35 => Icons.volume_mute,
+                          <=65 => Icons.volume_down,
+                          <=100 => Icons.volume_up,
+                          _ => Icons.volume_down,
+                        },
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -659,7 +682,12 @@ Widget buildDanmuView(VideoState videoState, LiveRoomController controller) {
     key: controller.globalDanmuKey,
     createdController: controller.initDanmakuController,
     option: DanmakuOption(
-      fontSize: 16,
+      fontSize: AppSettingsController.instance.danmuSize.value,
+      area: AppSettingsController.instance.danmuArea.value,
+      duration: AppSettingsController.instance.danmuSpeed.value,
+      opacity: AppSettingsController.instance.danmuOpacity.value,
+      strokeWidth: AppSettingsController.instance.danmuStrokeWidth.value,
+      fontWeight: FontWeight.values[AppSettingsController.instance.danmuFontWeight.value],
     ),
   );
   return Positioned.fill(
