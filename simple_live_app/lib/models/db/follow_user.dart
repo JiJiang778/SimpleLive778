@@ -51,6 +51,9 @@ class FollowUser {
 
   /// 开播时间戳
   String? liveStartTime;
+  
+  /// 错误信息（用于显示获取状态失败的原因）
+  String? errorMsg;
 
   factory FollowUser.fromJson(Map<String, dynamic> json) => FollowUser(
         id: json['id'],
