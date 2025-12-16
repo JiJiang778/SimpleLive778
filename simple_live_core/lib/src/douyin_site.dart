@@ -59,13 +59,14 @@ class DouyinSite implements LiveSite {
   /// 9. __ac_nonce - 临时验证，有效期很短（几分钟）
   /// 10. msToken - 微软令牌，有效期中等（约1天）
   
-  /// Cookie池 - 仅保留两个ttwid轮换
-  static List<String> kCookiePool = [
-    // ttwid 1
+  /// 默认Cookie池（不可修改的原始列表）
+  static const List<String> kDefaultCookiePool = [
     "ttwid=1%7CB1qls3GdnZhUov9o2NxOMxxYS2ff6OSvEWbv0ytbES4%7C1680522049%7C280d802d6d478e3e78d0c807f7c487e7ffec0ae4e5fdd6a0fe74c3c6af149511",
-    // ttwid 2
     "ttwid=1%7CCQUSKtvKnhhPr2-LZZPi8gotooa5g8mKBS2MTsVWqM0%7C1765287876%7C04a6d728a198c6a0e49695dbc66c8cc96959eff6d5119cf0f5ef2cf33dfe0f6b",
   ];
+  
+  /// Cookie池 - 可动态修改（由DouyinAccountService同步）
+  static List<String> kCookiePool = List.from(kDefaultCookiePool);
   
   /// 当前使用的cookie索引
   static int _currentCookieIndex = 0;
@@ -123,6 +124,16 @@ class DouyinSite implements LiveSite {
   static void resetCookieFailCount() {
     String currentCookie = kCookiePool[_currentCookieIndex];
     _cookieFailCount[currentCookie] = 0;
+  }
+  
+  /// 获取当前cookie索引
+  static int getCurrentCookieIndex() {
+    return _currentCookieIndex;
+  }
+  
+  /// 获取指定cookie的失败次数
+  static int getCookieFailCount(String cookie) {
+    return _cookieFailCount[cookie] ?? 0;
   }
   
   /// 用户设置的 cookie
@@ -430,9 +441,16 @@ class DouyinSite implements LiveSite {
   Future<LiveRoomDetail> getRoomDetailByWebRid(String webRid) async {
     try {
       var result = await _getRoomDetailByWebRidApi(webRid);
+      // 成功时重置失败计数
+      resetCookieFailCount();
       return result;
     } catch (e) {
       CoreLog.error(e);
+      // 标记当前cookie失败，触发切换
+      String errorStr = e.toString();
+      if (errorStr.contains("频繁") || errorStr.contains("444") || errorStr.contains("403") || errorStr.contains("格式")) {
+        markCookieAsFailed();
+      }
     }
     return await _getRoomDetailByWebRidHtml(webRid);
   }
@@ -1540,8 +1558,9 @@ class DouyinSite implements LiveSite {
     }
 
     var data = result["data"];
-    if (data["data"] == null || data["data"].isEmpty) {
-      return false; // 直播间不存在或已下播
+    if (data == null || data["data"] == null || data["data"].isEmpty) {
+      // 数据为空时抛出异常，让上层fallback到完整方法
+      throw Exception("API返回数据为空");
     }
 
     var roomData = data["data"][0];
@@ -1569,7 +1588,8 @@ class DouyinSite implements LiveSite {
     );
     
     if (result == null || result["data"] == null || result["data"]["room"] == null) {
-      return false;
+      // 数据为空时抛出异常，让上层fallback到完整方法
+      throw Exception("reflow接口返回数据为空");
     }
 
     var room = result["data"]["room"];
