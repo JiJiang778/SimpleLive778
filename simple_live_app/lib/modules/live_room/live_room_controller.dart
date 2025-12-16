@@ -101,7 +101,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   /// 直播间加载失败
   var loadError = false.obs;
-  Error? error;
+  String? error;
 
   // 开播时长状态变量
   var liveDuration = "00:00:00".obs;
@@ -351,7 +351,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       Log.logPrint(e);
       //SmartDialog.showToast(e.toString());
       loadError.value = true;
-      error = e as Error;
+      error = e.toString();
     } finally {
       SmartDialog.dismiss(status: SmartStatus.loading);
     }
@@ -367,7 +367,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
           await site.liveSite.getPlayQualites(detail: detail.value!);
 
       if (playQualites.isEmpty) {
-        SmartDialog.showToast("无法读取播放清晰度");
+        // 设置错误状态，在播放器区域显示
+        loadError.value = true;
+        error = "无法读取播放清晰度";
         return;
       }
       qualites.value = playQualites;
@@ -387,7 +389,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       getPlayUrl();
     } catch (e) {
       Log.logPrint(e);
-      SmartDialog.showToast("无法读取播放清晰度");
+      // 设置错误状态
+      loadError.value = true;
+      error = "无法读取播放清晰度：$e";
     }
   }
 
@@ -413,7 +417,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     var playUrl = await site.liveSite
         .getPlayUrls(detail: detail.value!, quality: qualites[currentQuality]);
     if (playUrl.urls.isEmpty) {
-      SmartDialog.showToast("无法读取播放地址");
+      // 设置错误状态，在播放器区域显示
+      loadError.value = true;
+      error = "无法读取播放地址";
       return;
     }
     playUrls.value = playUrl.urls;
@@ -497,7 +503,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
     if (playUrls.length - 1 == currentLineIndex) {
       errorMsg.value = "播放失败";
-      SmartDialog.showToast("播放失败:$error");
+      // 设置错误状态，在播放器区域显示错误
+      loadError.value = true;
+      this.error = error.toString();
     } else {
       //currentLineIndex += 1;
       //setPlayer();
@@ -1023,9 +1031,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     Utils.copyToClipboard('''直播平台：${rxSite.value.name}
 房间号：${rxRoomId.value}
 错误信息：
-${error?.toString()}
-----------------
-${error?.stackTrace}''');
+$error''');
     SmartDialog.showToast("已复制错误信息");
   }
 
