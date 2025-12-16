@@ -95,6 +95,12 @@ class AppSettingsController extends GetxController {
       LocalStorageService.kPlayerVolume,
       100.0,
     );
+
+    playerLastVolume.value = LocalStorageService.instance.getValue(
+      LocalStorageService.kPlayerLastVolume,
+      100.0,
+    );
+
     pipHideDanmu.value = LocalStorageService.instance
         .getValue(LocalStorageService.kPIPHideDanmu, true);
 
@@ -444,6 +450,15 @@ class AppSettingsController extends GetxController {
     playerVolume.value = value;
     LocalStorageService.instance.setValue(
       LocalStorageService.kPlayerVolume,
+      value,
+    );
+  }
+
+  Rx<double> playerLastVolume = 100.0.obs;
+  void setPlayerLastVolume(double value) {
+    playerLastVolume.value = value;
+    LocalStorageService.instance.setValue(
+      LocalStorageService.kPlayerLastVolume,
       value,
     );
   }
