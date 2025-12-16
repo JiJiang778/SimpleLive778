@@ -35,60 +35,8 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   Widget build(BuildContext context) {
     final page = Obx(
       () {
-        if (controller.loadError.value) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text("直播间加载失败"),
-            ),
-            body: Padding(
-              padding: AppStyle.edgeInsetsA12,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  LottieBuilder.asset(
-                    'assets/lotties/error.json',
-                    height: 140,
-                    repeat: false,
-                  ),
-                  const Text(
-                    "直播间加载失败",
-                    textAlign: TextAlign.center,
-                  ),
-                  AppStyle.vGap4,
-                  Text(
-                    controller.error?.toString() ?? "未知错误",
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  AppStyle.vGap4,
-                  Text(
-                    "${controller.rxSite.value.id} - ${controller.rxRoomId.value}",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextButton.icon(
-                        onPressed: controller.copyErrorDetail,
-                        icon: const Icon(Remix.file_copy_line),
-                        label: const Text("复制信息"),
-                      ),
-                      TextButton.icon(
-                        onPressed: controller.refreshRoom,
-                        icon: const Icon(Remix.refresh_line),
-                        label: const Text("刷新"),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            ),
-          );
-        }
+        // 移除全屏错误页面，直接显示常规页面
+        // 错误信息将在播放器区域内显示
         if (controller.fullScreenState.value) {
           return PopScope(
             canPop: false,
@@ -260,12 +208,10 @@ class LiveRoomPage extends GetView<LiveRoomController> {
     return Stack(
       children: [
         Video(
-          key: controller.globalPlayerKey,
           controller: controller.videoController,
-          pauseUponEnteringBackgroundMode:
-              AppSettingsController.instance.playerAutoPause.value,
-          resumeUponEnteringForegroundMode:
-              AppSettingsController.instance.playerAutoPause.value,
+          key: controller.globalPlayerKey,
+          pauseUponEnteringBackgroundMode: false,
+          resumeUponEnteringForegroundMode: true,
           controls: (state) {
             return playerControls(state, controller);
           },
@@ -274,9 +220,80 @@ class LiveRoomPage extends GetView<LiveRoomController> {
           // 自己实现
           wakelock: false,
         ),
+        // 错误显示层
         Obx(
           () => Visibility(
-            visible: !controller.liveStatus.value,
+            visible: controller.loadError.value,
+            child: Container(
+              color: Colors.black87,
+              child: Center(
+                child: Padding(
+                  padding: AppStyle.edgeInsetsA20,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.white70,
+                      ),
+                      AppStyle.vGap12,
+                      const Text(
+                        "直播间加载失败",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      AppStyle.vGap8,
+                      Text(
+                        controller.error ?? "未知错误",
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13, color: Colors.white70),
+                      ),
+                      AppStyle.vGap8,
+                      Text(
+                        "${controller.rxSite.value.id} - ${controller.rxRoomId.value}",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, color: Colors.white60),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: controller.copyErrorDetail,
+                            icon: const Icon(Remix.file_copy_line, size: 18),
+                            label: const Text("复制信息"),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                          AppStyle.hGap12,
+                          ElevatedButton.icon(
+                            onPressed: controller.refreshRoom,
+                            icon: const Icon(Remix.refresh_line, size: 18),
+                            label: const Text("重试"),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        // 未开播提示层
+        Obx(
+          () => Visibility(
+            visible: !controller.liveStatus.value && !controller.loadError.value,
             child: const Center(
               child: Text(
                 "未开播",
