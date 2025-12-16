@@ -36,23 +36,100 @@ class DouyinSite implements LiveSite {
     getSignature = func;
   }
 
+  /// 使用 QQBrowser User-Agent（参考原版 DouyinLiveRecorder）
   static const String kDefaultUserAgent =
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0";
+      "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.97 Safari/537.36 Core/1.116.567.400 QQBrowser/19.7.6764.400";
 
   static const String kDefaultReferer = "https://live.douyin.com";
 
   static const String kDefaultAuthority = "live.douyin.com";
 
   /// 默认 Cookie - 只需要 ttwid 字段即可获取所有画质（包括蓝光）
-  /// 经过测试验证，LOGIN_STATUS=1 等其他字段都是可选的
-  static const String kDefaultCookie =
-      "ttwid=1%7CB1qls3GdnZhUov9o2NxOMxxYS2ff6OSvEWbv0ytbES4%7C1680522049%7C280d802d6d478e3e78d0c807f7c487e7ffec0ae4e5fdd6a0fe74c3c6af149511";
-
+  static const String kDefaultCookie = "ttwid=1%7CB1qls3GdnZhUov9o2NxOMxxYS2ff6OSvEWbv0ytbES4%7C1680522049%7C280d802d6d478e3e78d0c807f7c487e7ffec0ae4e5fdd6a0fe74c3c6af149511";
+  
+  /// 抖音重要Cookie字段说明：
+  /// 1. ttwid - 设备指纹，有效期最长（几个月），最重要
+  /// 2. s_v_web_id - 访客ID，有效期较长（约30天）
+  /// 3. passport_csrf_token - CSRF令牌，有效期中等（约7天）
+  /// 4. odin_tt - 设备追踪ID，有效期较长（约30天）
+  /// 5. sid_guard - 会话保护，有效期中等（约7天）
+  /// 6. uid_tt - 用户追踪ID，有效期较长（约30天）
+  /// 7. sid_tt - 会话ID，有效期短（约1天）
+  /// 8. sessionid - 登录会话，有效期短（约1天）
+  /// 9. __ac_nonce - 临时验证，有效期很短（几分钟）
+  /// 10. msToken - 微软令牌，有效期中等（约1天）
+  
+  /// Cookie池 - 仅保留两个ttwid轮换
+  static List<String> kCookiePool = [
+    // ttwid 1
+    "ttwid=1%7CB1qls3GdnZhUov9o2NxOMxxYS2ff6OSvEWbv0ytbES4%7C1680522049%7C280d802d6d478e3e78d0c807f7c487e7ffec0ae4e5fdd6a0fe74c3c6af149511",
+    // ttwid 2
+    "ttwid=1%7CCQUSKtvKnhhPr2-LZZPi8gotooa5g8mKBS2MTsVWqM0%7C1765287876%7C04a6d728a198c6a0e49695dbc66c8cc96959eff6d5119cf0f5ef2cf33dfe0f6b",
+  ];
+  
+  /// 当前使用的cookie索引
+  static int _currentCookieIndex = 0;
+  
+  /// 记录每个cookie的最后使用时间和失败次数
+  static final Map<String, DateTime> _cookieLastUsed = {};
+  static final Map<String, int> _cookieFailCount = {};
+  
+  /// 获取下一个可用的cookie
+  static String getNextCookie() {
+    // 找到失败次数最少且超过冷却时间的cookie
+    String? bestCookie;
+    int minFailCount = 999;
+    
+    for (int i = 0; i < kCookiePool.length; i++) {
+      String cookie = kCookiePool[i];
+      int failCount = _cookieFailCount[cookie] ?? 0;
+      DateTime? lastUsed = _cookieLastUsed[cookie];
+      
+      // 如果这个cookie从未使用过，直接使用
+      if (lastUsed == null) {
+        _currentCookieIndex = i;
+        return cookie;
+      }
+      
+      // 检查冷却时间（根据失败次数调整冷却时间）
+      int cooldownSeconds = failCount * 30 + 10; // 基础10秒，每次失败增加30秒
+      if (DateTime.now().difference(lastUsed).inSeconds > cooldownSeconds) {
+        if (failCount < minFailCount) {
+          minFailCount = failCount;
+          bestCookie = cookie;
+          _currentCookieIndex = i;
+        }
+      }
+    }
+    
+    // 如果找到了合适的cookie，返回它
+    if (bestCookie != null) {
+      return bestCookie;
+    }
+    
+    // 如果所有cookie都在冷却中，使用失败次数最少的
+    _currentCookieIndex = (_currentCookieIndex + 1) % kCookiePool.length;
+    return kCookiePool[_currentCookieIndex];
+  }
+  
+  /// 标记当前cookie失败
+  static void markCookieAsFailed() {
+    String currentCookie = kCookiePool[_currentCookieIndex];
+    _cookieFailCount[currentCookie] = (_cookieFailCount[currentCookie] ?? 0) + 1;
+    _logDebug("Cookie #${_currentCookieIndex + 1} 失败次数: ${_cookieFailCount[currentCookie]}");
+  }
+  
+  /// 重置cookie失败计数（成功时调用）
+  static void resetCookieFailCount() {
+    String currentCookie = kCookiePool[_currentCookieIndex];
+    _cookieFailCount[currentCookie] = 0;
+  }
+  
   /// 用户设置的 cookie
   String cookie = "";
-
-  void _logDebug(String msg) {
-    // 只使用 CoreLog，不使用 print
+  
+  static void _logDebug(String msg) {
+    // 只使用 CoreLog，不使用 print  
     CoreLog.d("[Douyin] $msg");
   }
 
@@ -69,13 +146,19 @@ class DouyinSite implements LiveSite {
         return headers;
       }
 
-      // 使用默认的 ttwid cookie（只需要 ttwid 即可获取所有画质）
-      headers["cookie"] = kDefaultCookie;
+      // 使用cookie池系统
+      String selectedCookie = getNextCookie();
+      _cookieLastUsed[selectedCookie] = DateTime.now();
+      
+      headers["cookie"] = selectedCookie;
+      _logDebug("使用Cookie #${_currentCookieIndex + 1}/${kCookiePool.length}");
+      
       return headers;
     } catch (e) {
       CoreLog.error(e);
+      // 如果出错，使用第一个cookie作为后备
       if (!(headers["cookie"]?.toString().isNotEmpty ?? false)) {
-        headers["cookie"] = kDefaultCookie;
+        headers["cookie"] = kCookiePool.first;
       }
       return headers;
     }
@@ -95,11 +178,27 @@ class DouyinSite implements LiveSite {
                 .firstMatch(result)
                 ?.group(0) ??
             "";
-    var renderDataJson = json.decode(renderData
+    
+    // 检查是否成功获取到数据
+    if (renderData.isEmpty) {
+      throw Exception("无法获取抖音分类数据，可能是页面结构已变化");
+    }
+    
+    var renderDataStr = renderData
         .trim()
         .replaceAll('\\"', '"')
         .replaceAll(r"\\", r"\")
-        .replaceAll(']\\n', ""));
+        .replaceAll(']\\n', "");
+    
+    Map<String, dynamic> renderDataJson;
+    try {
+      renderDataJson = json.decode(renderDataStr);
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception("抖音分类数据解析失败：${e.message}");
+      }
+      rethrow;
+    }
 
     for (var item in renderDataJson["categoryData"]) {
       List<LiveSubCategory> subs = [];
@@ -524,8 +623,22 @@ class DouyinSite implements LiveSite {
         .replaceAll('\\"', '"')
         .replaceAll(r"\\", r"\")
         .replaceAll(']\\n', "");
-    var renderDataJson = json.decode(str);
-    return renderDataJson["state"];
+    
+    // 检查是否成功获取到数据
+    if (str.isEmpty || str.length < 2) {
+      throw Exception("抖音直播间页面加载失败，可能是访问频率过高或直播间不存在。请稍后再试。");
+    }
+    
+    try {
+      var renderDataJson = json.decode(str);
+      return renderDataJson["state"];
+    } catch (e) {
+      // 如果是JSON解析错误，提供更友好的错误信息
+      if (e is FormatException) {
+        throw Exception("抖音直播间数据解析失败，可能页面结构已变化。错误详情：${e.message}");
+      }
+      rethrow;
+    }
   }
 
   /// 通过webRid获取直播间Web信息
@@ -637,7 +750,17 @@ class DouyinSite implements LiveSite {
           }
         }
       } else {
-        var qualityData = json.decode(streamData)["data"] as Map;
+        Map<String, dynamic> qualityData;
+        try {
+          var decodedData = json.decode(streamData);
+          qualityData = Map<String, dynamic>.from(decodedData["data"] as Map);
+        } catch (e) {
+          if (e is FormatException) {
+            CoreLog.error("解析streamData失败: ${e.message}");
+            return qualities;
+          }
+          rethrow;
+        }
 
         for (var quality in qulityList) {
           List<String> urls = [];
@@ -874,7 +997,15 @@ class DouyinSite implements LiveSite {
           Map<String, dynamic>? liveData;
           if (lives["rawdata"] != null) {
             var rawdata = lives["rawdata"];
-            liveData = rawdata is String ? json.decode(rawdata) : rawdata;
+            try {
+              liveData = rawdata is String ? json.decode(rawdata) : rawdata;
+            } catch (e) {
+              if (e is FormatException) {
+                CoreLog.error("解析rawdata失败: ${e.message}");
+                continue;
+              }
+              rethrow;
+            }
           }
           
           if (liveData != null) {
@@ -1171,7 +1302,15 @@ class DouyinSite implements LiveSite {
           Map<String, dynamic>? liveData;
           if (lives["rawdata"] != null) {
             var rawdata = lives["rawdata"];
-            liveData = rawdata is String ? json.decode(rawdata) : rawdata;
+            try {
+              liveData = rawdata is String ? json.decode(rawdata) : rawdata;
+            } catch (e) {
+              if (e is FormatException) {
+                CoreLog.error("解析rawdata失败: ${e.message}");
+                continue;
+              }
+              rethrow;
+            }
           }
           
           if (liveData != null) {
@@ -1325,8 +1464,127 @@ class DouyinSite implements LiveSite {
 
   @override
   Future<bool> getLiveStatus({required String roomId}) async {
-    var result = await getRoomDetail(roomId: roomId);
-    return result.status;
+    try {
+      // 使用轻量级方法检查直播状态，避免获取完整房间详情
+      return await _getLiveStatusLight(roomId);
+    } catch (e) {
+      // 如果轻量级方法失败，尝试完整方法作为后备
+      try {
+        var result = await getRoomDetail(roomId: roomId);
+        return result.status;
+      } catch (e2) {
+        String errorStr = e2.toString();
+        
+        // 如果是404/444错误或直播间不存在，返回false（表示未直播）
+        if (errorStr.contains("444") || 
+            errorStr.contains("404") || 
+            errorStr.contains("不存在") || 
+            errorStr.contains("已关闭") ||
+            errorStr.contains("已下播")) {
+          return false;
+        }
+        
+        // 如果是请求频繁错误，抛出异常让上层处理
+        if (errorStr.contains("频繁") || errorStr.contains("limit")) {
+          throw Exception("抖音请求过于频繁，请稍后再试");
+        }
+        
+        // 其他错误，记录日志并返回false
+        CoreLog.error("获取抖音直播状态失败 [roomId: $roomId]: $e2");
+        return false;
+      }
+    }
+  }
+
+  /// 轻量级直播状态检查方法
+  /// 只获取必要的状态信息，避免获取完整房间详情
+  Future<bool> _getLiveStatusLight(String roomId) async {
+    // 判断是webRid还是roomId
+    if (roomId.length <= 16) {
+      // webRid - 使用API快速检查
+      return await _getLiveStatusByApi(roomId);
+    } else {
+      // roomId - 使用reflow接口检查
+      return await _getLiveStatusByRoomId(roomId);
+    }
+  }
+
+  /// 通过API检查直播状态（适用于webRid）
+  Future<bool> _getLiveStatusByApi(String webRid) async {
+    String serverUrl = "https://live.douyin.com/webcast/room/web/enter/";
+    var requestHeader = await getRequestHeaders();
+    requestHeader["Referer"] = "https://live.douyin.com/$webRid";
+    
+    var uri = Uri.parse(serverUrl)
+        .replace(scheme: "https", port: 443, queryParameters: {
+      "aid": '6383',
+      "app_name": "douyin_web",
+      "live_id": '1',
+      "device_platform": "web",
+      "language": "zh-CN",
+      "browser_language": "zh-CN",
+      "browser_name": "Edge",
+      "browser_version": "125.0.0.0",
+      "web_rid": webRid,
+      "msToken": "",
+    });
+    
+    var requestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
+    var result = await HttpClient.instance.getJson(
+      requestUrl,
+      header: requestHeader,
+    );
+
+    if (result is! Map || !result.containsKey("data")) {
+      throw Exception("API返回格式错误");
+    }
+
+    var data = result["data"];
+    if (data["data"] == null || data["data"].isEmpty) {
+      return false; // 直播间不存在或已下播
+    }
+
+    var roomData = data["data"][0];
+    var status = roomData["status"];
+    
+    // 成功时重置失败计数
+    resetCookieFailCount();
+    
+    return status == 2; // status=2 表示直播中
+  }
+
+  /// 通过roomId检查直播状态（适用于长roomId）
+  Future<bool> _getLiveStatusByRoomId(String roomId) async {
+    var result = await HttpClient.instance.getJson(
+      'https://webcast.amemv.com/webcast/room/reflow/info/',
+      queryParameters: {
+        "type_id": 0,
+        "live_id": 1,
+        "room_id": roomId,
+        "sec_user_id": "",
+        "version_code": "99.99.99",
+        "app_id": 6383,
+      },
+      header: await getRequestHeaders(),
+    );
+    
+    if (result == null || result["data"] == null || result["data"]["room"] == null) {
+      return false;
+    }
+
+    var room = result["data"]["room"];
+    var status = room["status"];
+    
+    // status=4 表示已下播，需要通过webRid再次检查
+    if (status == 4) {
+      var webRid = room["owner"]?["web_rid"]?.toString();
+      if (webRid != null && webRid.isNotEmpty) {
+        return await _getLiveStatusByApi(webRid);
+      }
+      return false;
+    }
+    
+    return status == 2; // status=2 表示直播中
   }
 
   @override
