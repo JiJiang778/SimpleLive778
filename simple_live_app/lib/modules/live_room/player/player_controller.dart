@@ -56,13 +56,22 @@ mixin PlayerMixin {
         await nativePlayer.setProperty('demuxer-max-bytes', '${bufferSize * 1024 * 1024}');
         await nativePlayer.setProperty('demuxer-max-back-bytes', '${bufferSize * 1024 * 1024}');
         
+        // 增加音频缓冲区大小，防止音频欠载
+        await nativePlayer.setProperty('audio-buffer', '0.5');
+        await nativePlayer.setProperty('audio-samplerate', '48000');
+        
         // 优化视频渲染，防止画面卡死
-        await nativePlayer.setProperty('video-sync', 'audio');
+        // 改用display-resample同步模式，避免音频问题影响视频
+        await nativePlayer.setProperty('video-sync', 'display-resample');
         await nativePlayer.setProperty('framedrop', 'vo');
         
-        // 降低延迟
+        // 降低延迟但保持稳定性
         await nativePlayer.setProperty('cache-pause-initial', 'yes');
-        await nativePlayer.setProperty('cache-pause-wait', '3');
+        await nativePlayer.setProperty('cache-pause-wait', '1');
+        
+        // 设置更激进的缓冲策略
+        await nativePlayer.setProperty('cache-pause', 'no');
+        await nativePlayer.setProperty('demuxer-readahead-secs', '10');
         
         // 优化高画质播放，减少全屏掉帧（某些属性可能不被所有平台支持）
         try {
