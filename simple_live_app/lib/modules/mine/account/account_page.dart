@@ -23,6 +23,30 @@ class AccountPage extends GetView<AccountController> {
               textAlign: TextAlign.center,
             ),
           ),
+          Padding(
+            padding: AppStyle.edgeInsetsH12,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  "抖音直播需要添加Cookie（ttwid就足够）才能正常进入直播间。",
+                  style: TextStyle(fontSize: 12),
+                ),
+                GestureDetector(
+                  onTap: controller.showCookieTutorial,
+                  child: const Text(
+                    "（获取Cookie教程）",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           Obx(
             () => ListTile(
               leading: Image.asset(
@@ -67,13 +91,9 @@ class AccountPage extends GetView<AccountController> {
                 width: 36,
                 height: 36,
               ),
-              title: const Text("抖音直播"),
-              subtitle: Text(DouyinAccountService.instance.hasCookie.value
-                  ? "已自定义（${DouyinAccountService.instance.cookie.length} 字符）"
-                  : "使用默认 ttwid"),
-              trailing: DouyinAccountService.instance.hasCookie.value
-                  ? const Icon(Icons.delete_outline)
-                  : const Icon(Icons.chevron_right),
+              title: const Text("抖音直播 - Cookie池"),
+              subtitle: Text("已配置 ${DouyinAccountService.instance.cookiePool.length} 个ttwid"),
+              trailing: const Icon(Icons.chevron_right),
               onTap: controller.douyinTap,
             ),
           ),
