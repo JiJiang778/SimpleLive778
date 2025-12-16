@@ -291,6 +291,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     addSysMsg("弹幕服务器连接正常");
   }
 
+  /// 抖音重试计数器
+  int _douyinRetryCount = 0;
+  
   /// 加载直播间信息
   void loadData() async {
     try {
@@ -299,7 +302,13 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       error = null;
       update();
       addSysMsg("正在读取直播间信息");
-      detail.value = await site.liveSite.getRoomDetail(roomId: roomId);
+      
+      // 抖音直播特殊处理：失败时自动切换ttwid重试
+      if (site.id == Constant.kDouyin) {
+        detail.value = await _loadDouyinRoomWithRetry();
+      } else {
+        detail.value = await site.liveSite.getRoomDetail(roomId: roomId);
+      }
 
       if (site.id == Constant.kDouyin) {
         // 1.6.0之前收藏的WebRid
@@ -349,12 +358,71 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       startOnlineRefreshTimer(); // 启动人数刷新定时器
     } catch (e) {
       Log.logPrint(e);
-      //SmartDialog.showToast(e.toString());
       loadError.value = true;
       error = e.toString();
     } finally {
       SmartDialog.dismiss(status: SmartStatus.loading);
+      _douyinRetryCount = 0; // 重置重试计数
     }
+  }
+  
+  /// 抖音直播间加载（带自动重试和ttwid切换）
+  Future<LiveRoomDetail> _loadDouyinRoomWithRetry() async {
+    int maxRetries = DouyinSite.kCookiePool.length;
+    
+    for (int i = 0; i < maxRetries; i++) {
+      try {
+        var result = await site.liveSite.getRoomDetail(roomId: roomId);
+        // 成功时重置cookie失败计数
+        DouyinSite.resetCookieFailCount();
+        if (i > 0) {
+          SmartDialog.showToast("使用ttwid #${DouyinSite.getCurrentCookieIndex() + 1} 成功");
+        }
+        return result;
+      } catch (e) {
+        lastError = e as Exception;
+        String errorStr = e.toString();
+        
+        // 判断是否是可重试的错误
+        bool isRetryableError = errorStr.contains("444") || 
+            errorStr.contains("403") || 
+            errorStr.contains("频繁") || 
+            errorStr.contains("格式");
+        
+        if (isRetryableError && i < maxRetries - 1) {
+          // 标记当前cookie失败，切换到下一个
+          DouyinSite.markCookieAsFailed();
+          int nextIndex = (DouyinSite.getCurrentCookieIndex() + 1) % maxRetries;
+          SmartDialog.showToast("ttwid #${DouyinSite.getCurrentCookieIndex() + 1} 失败，正在尝试 #${nextIndex + 1}...");
+          addSysMsg("切换ttwid重试 (${i + 1}/$maxRetries)");
+          await Future.delayed(const Duration(milliseconds: 500));
+        } else {
+          // 不可重试的错误或已用尽重试次数
+          break;
+        }
+      }
+    }
+    
+    // 所有ttwid都失败了
+    int cooldownSeconds = _calculateCooldownTime();
+    String errorMsg = "抖音直播间加载失败，可能是访问频率过高或直播间不存在。";
+    if (cooldownSeconds > 0) {
+      errorMsg += "\n建议等待约${cooldownSeconds}秒后再试";
+    }
+    throw Exception(errorMsg);
+  }
+  
+  /// 计算建议的冷却时间
+  int _calculateCooldownTime() {
+    int maxCooldown = 0;
+    for (var cookie in DouyinSite.kCookiePool) {
+      int failCount = DouyinSite.getCookieFailCount(cookie);
+      int cooldown = failCount * 30 + 10;
+      if (cooldown > maxCooldown) {
+        maxCooldown = cooldown;
+      }
+    }
+    return maxCooldown;
   }
 
   /// 初始化播放器
