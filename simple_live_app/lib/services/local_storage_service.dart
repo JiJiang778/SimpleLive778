@@ -114,9 +114,9 @@ class LocalStorageService extends GetxService {
   /// 人数显示精确度（true=精确显示，false=格式化显示）
   static const String kRoomOnlineExactDisplay = "RoomOnlineExactDisplay";
 
-/// 是否启用人数自动刷新
+  /// 是否启用人数自动刷新
   static const String kRoomOnlineRefreshEnable = "RoomOnlineRefreshEnable";
-  
+
   /// 播放器音量
   static const String kPlayerVolume = "PlayerVolume";
 
