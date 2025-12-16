@@ -380,7 +380,6 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         }
         return result;
       } catch (e) {
-        lastError = e as Exception;
         String errorStr = e.toString();
         
         // 判断是否是可重试的错误
