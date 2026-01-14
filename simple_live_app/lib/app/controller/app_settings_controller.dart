@@ -168,6 +168,9 @@ class AppSettingsController extends GetxController {
     updateFollowThreadCount.value = LocalStorageService.instance
         .getValue(LocalStorageService.kUpdateFollowThreadCount, 0);  // 默认 0 = 自动
 
+    huyaSearchAnchorSortByLive.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kHuyaSearchAnchorSortByLive, false);
+
     initSiteSort();
     initHomeSort();
     
@@ -583,5 +586,12 @@ class AppSettingsController extends GetxController {
     playerForceHttps.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kPlayerForceHttps, e);
+  }
+
+  var huyaSearchAnchorSortByLive = false.obs;
+  void setHuyaSearchAnchorSortByLive(bool e) {
+    huyaSearchAnchorSortByLive.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kHuyaSearchAnchorSortByLive, e);
   }
 }
