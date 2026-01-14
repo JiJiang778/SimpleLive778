@@ -123,9 +123,24 @@ workflows:
           cd simple_live_app
           flutter_distributor package --platform macos --targets dmg,zip --skip-clean
           
+      # 合并 macOS 产物到一个压缩包
+      - name: Package macOS artifacts
+        script: |
+          cd simple_live_app
+          # 获取版本号
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+          # 创建临时目录
+          mkdir -p SimpleLive-Mac
+          # 复制 dmg 和 zip 到临时目录
+          cp build/dist/$VERSION/*.dmg SimpleLive-Mac/ 2>/dev/null || true
+          cp build/dist/$VERSION/*.zip SimpleLive-Mac/ 2>/dev/null || true
+          # 创建最终的压缩包
+          zip -r SimpleLive-Mac.zip SimpleLive-Mac
+          # 清理临时目录
+          rm -rf SimpleLive-Mac
+          
     artifacts:
-      - simple_live_app/build/dist/**/*.dmg
-      - simple_live_app/build/dist/**/*.zip
+      - simple_live_app/SimpleLive-Mac.zip
 
   # 同时打包 iOS + macOS
   all-apple:
@@ -204,7 +219,22 @@ workflows:
           cd simple_live_app
           flutter_distributor package --platform macos --targets dmg,zip --skip-clean
           
+      # 合并 macOS 产物到一个压缩包
+      - name: Package macOS artifacts
+        script: |
+          cd simple_live_app
+          # 获取版本号
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+          # 创建临时目录
+          mkdir -p SimpleLive-Mac
+          # 复制 dmg 和 zip 到临时目录
+          cp build/dist/$VERSION/*.dmg SimpleLive-Mac/ 2>/dev/null || true
+          cp build/dist/$VERSION/*.zip SimpleLive-Mac/ 2>/dev/null || true
+          # 创建最终的压缩包
+          zip -r SimpleLive-Mac.zip SimpleLive-Mac
+          # 清理临时目录
+          rm -rf SimpleLive-Mac
+          
     artifacts:
       - simple_live_app/SimpleLive-iOS.ipa
-      - simple_live_app/build/dist/**/*.dmg
-      - simple_live_app/build/dist/**/*.zip
+      - simple_live_app/SimpleLive-Mac.zip
