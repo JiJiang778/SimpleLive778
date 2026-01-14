@@ -60,9 +60,9 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                 Obx(
                   () => SettingsNumber(
                     title: "缓冲区大小",
-                    subtitle: "若播放卡顿或高画质掉帧可尝试调高此选项",
+                    subtitle: "影响内存占用和网络抖动容忍度，建议16-64秒",
                     value: controller.playerBufferSize.value,
-                    min: 16,
+                    min: 8,
                     max: 128,
                     step: 8,
                     unit: "秒",
@@ -189,6 +189,30 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                     value: controller.playershowSuperChat.value,
                     onChanged: (e) {
                       controller.setPlayerShowSuperChat(e);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: AppStyle.edgeInsetsA12.copyWith(top: 24),
+            child: Text(
+              "搜索",
+              style: Get.textTheme.titleSmall,
+            ),
+          ),
+          SettingsCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Obx(
+                  () => SettingsSwitch(
+                    title: "虎牙搜索主播按开播排序",
+                    subtitle: "开启后会加载全部搜索结果再排序，可能需要等待较长时间",
+                    value: controller.huyaSearchAnchorSortByLive.value,
+                    onChanged: (e) {
+                      controller.setHuyaSearchAnchorSortByLive(e);
                     },
                   ),
                 ),
