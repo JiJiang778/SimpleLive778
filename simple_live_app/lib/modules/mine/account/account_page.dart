@@ -10,6 +10,9 @@ class AccountPage extends GetView<AccountController> {
 
   @override
   Widget build(BuildContext context) {
+    // 获取当前主题的文字颜色，自动适配浅色/暗黑模式
+    final textColor = Theme.of(context).textTheme.bodyMedium?.color;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text("账号管理"),
@@ -22,16 +25,16 @@ class AccountPage extends GetView<AccountController> {
             child: Column(
               children: [
                 // 哔哩哔哩提示
-                const Text(
-                  "哔哩哔哩账号需要登录才能看高清晰度的直播，其他平台暂无此限制。",
-                  style: TextStyle(fontSize: 13, color: Colors.black87),
+                Text(
+                  "哔哩哔哩需要登录才能看高清晰度直播，其他平台无此限制。",
+                  style: TextStyle(fontSize: 13, color: textColor?.withOpacity(0.8)),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
                 // 抖音提示
-                const Text(
-                  "抖音直播需要添加Cookie（ttwid就足够）才能正常进入直播间。",
-                  style: TextStyle(fontSize: 13, color: Colors.black87),
+                Text(
+                  "抖音需要添加Cookie（ttwid就足够）才能正常进入直播间。",
+                  style: TextStyle(fontSize: 13, color: textColor?.withOpacity(0.8)),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 6),
