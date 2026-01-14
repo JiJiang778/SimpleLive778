@@ -174,36 +174,62 @@ class AccountController extends GetxController {
                         padding: EdgeInsets.all(20),
                         child: Text("Cookie池为空，请添加ttwid"),
                       )
-                    : ListView.builder(
+                    : ListView.separated(
                         shrinkWrap: true,
                         itemCount: DouyinAccountService.instance.cookiePool.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           var ttwid = DouyinAccountService.instance.cookiePool[index];
                           var shortId = _getShortTtwid(ttwid);
-                          return ListTile(
-                            dense: true,
-                            title: Text(
-                              "ttwid #${index + 1}",
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              shortId,
-                              style: const TextStyle(fontSize: 11),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          var createTime = _getTtwidCreateTime(ttwid);
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            child: Row(
                               children: [
+                                // 左侧信息
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "ttwid #${index + 1}",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        shortId,
+                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (createTime != null) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          "创建于 $createTime",
+                                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                // 右侧操作按钮
                                 IconButton(
-                                  icon: const Icon(Icons.copy, size: 18),
+                                  icon: const Icon(Icons.copy, size: 20),
                                   onPressed: () => _copyTtwid(ttwid),
                                   tooltip: "复制",
+                                  padding: const EdgeInsets.all(8),
+                                  constraints: const BoxConstraints(),
                                 ),
+                                const SizedBox(width: 8),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
                                   onPressed: () => _deleteTtwid(index),
                                   tooltip: "删除",
+                                  padding: const EdgeInsets.all(8),
+                                  constraints: const BoxConstraints(),
                                 ),
                               ],
                             ),
@@ -245,6 +271,32 @@ class AccountController extends GetxController {
       return "${value.substring(0, 15)}...${value.substring(value.length - 10)}";
     }
     return value;
+  }
+  
+  /// 从ttwid中提取创建时间
+  /// ttwid格式: 1|xxx|timestamp|hash (URL编码后 %7C 是 |)
+  String? _getTtwidCreateTime(String ttwid) {
+    try {
+      var value = ttwid;
+      if (value.startsWith('ttwid=')) {
+        value = value.substring(6);
+      }
+      // URL解码
+      value = Uri.decodeComponent(value);
+      // 按 | 分割
+      var parts = value.split('|');
+      if (parts.length >= 3) {
+        var timestamp = int.tryParse(parts[2]);
+        if (timestamp != null) {
+          var date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+          // 格式化日期
+          return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+        }
+      }
+    } catch (e) {
+      // 解析失败，返回null
+    }
+    return null;
   }
   
   /// 复制ttwid
