@@ -16,28 +16,32 @@ class AccountPage extends GetView<AccountController> {
       ),
       body: ListView(
         children: [
-          const Padding(
-            padding: AppStyle.edgeInsetsA12,
-            child: Text(
-              "哔哩哔哩账号需要登录才能看高清晰度的直播，其他平台暂无此限制。",
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Padding(
-            padding: AppStyle.edgeInsetsH12,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          // 顶部提示区域
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
               children: [
+                // 哔哩哔哩提示
+                const Text(
+                  "哔哩哔哩账号需要登录才能看高清晰度的直播，其他平台暂无此限制。",
+                  style: TextStyle(fontSize: 13, color: Colors.black87),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                // 抖音提示
                 const Text(
                   "抖音直播需要添加Cookie（ttwid就足够）才能正常进入直播间。",
-                  style: TextStyle(fontSize: 12),
+                  style: TextStyle(fontSize: 13, color: Colors.black87),
+                  textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 6),
+                // 获取Cookie教程链接
                 GestureDetector(
                   onTap: controller.showCookieTutorial,
                   child: const Text(
-                    "（获取Cookie教程）",
+                    "获取Cookie教程",
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       color: Colors.blue,
                       decoration: TextDecoration.underline,
                     ),
@@ -46,7 +50,7 @@ class AccountPage extends GetView<AccountController> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const Divider(height: 1),
           Obx(
             () => ListTile(
               leading: Image.asset(
