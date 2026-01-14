@@ -169,6 +169,9 @@ class LocalStorageService extends GetxService {
   /// 开启多线程更新关注
   static const String kUpdateFollowThreadCount = "UpdateFollowThreadCount";
 
+  /// 虎牙搜索主播按开播状态排序
+  static const String kHuyaSearchAnchorSortByLive = "HuyaSearchAnchorSortByLive";
+
   /// WebDAV_服务器地址
   static const String kWebDAVUri = "WebDAVUri";
 
