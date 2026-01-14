@@ -544,7 +544,10 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     Log.d("播放结束");
     // 遍历线路，如果全部链接都断开就是直播结束了
     if (playUrls.length - 1 == currentLineIndex) {
-      liveStatus.value = false;
+      // 所有线路都失败了，尝试重新获取播放链接（可能是链接过期）
+      Log.d("所有线路都失败，尝试重新获取播放链接");
+      await Future.delayed(const Duration(seconds: 2));
+      getPlayUrl();
     } else {
       changePlayLine(currentLineIndex + 1);
 
@@ -569,10 +572,10 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
 
     if (playUrls.length - 1 == currentLineIndex) {
-      errorMsg.value = "播放失败";
-      // 设置错误状态，在播放器区域显示错误
-      loadError.value = true;
-      this.error = error.toString();
+      // 所有线路都失败了，尝试重新获取播放链接（可能是链接过期）
+      Log.d("所有线路播放失败，尝试重新获取播放链接");
+      await Future.delayed(const Duration(seconds: 2));
+      getPlayUrl();
     } else {
       //currentLineIndex += 1;
       //setPlayer();
