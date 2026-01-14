@@ -449,6 +449,9 @@ class HuyaSite implements LiveSite {
   @override
   Future<LiveSearchRoomResult> searchRooms(String keyword,
       {int page = 1}) async {
+    // 虎牙搜索房间 API (v=4) 返回的 room_id 是 0，但有直播截图和观看人数
+    // 搜索主播 API (v=1) 返回正确的 room_id
+    // 需要结合两个 API 的数据：用 yyid 关联，从主播 API 获取 room_id
     var resultText = await HttpClient.instance.getJson(
       "https://search.cdn.huya.com/",
       queryParameters: {
@@ -456,7 +459,7 @@ class HuyaSite implements LiveSite {
         "do": "getSearchContent",
         "q": keyword,
         "uid": 0,
-        "v": 4,
+        "v": 4,  // 搜索房间 API，获取封面、标题、人数
         "typ": -5,
         "livestate": 0,
         "rows": 20,
@@ -464,34 +467,68 @@ class HuyaSite implements LiveSite {
       },
     );
     var result = json.decode(resultText);
-    var items = <LiveRoomItem>[];
-    for (var item in result["response"]["3"]["docs"]) {
-      var cover = item["game_screenshot"].toString();
-      if (!cover.contains("?")) {
-        cover += "?x-oss-process=style/w338_h190&";
+    
+    // 构建 yyid -> room_id 的映射（从搜索主播 API 获取）
+    Map<String, String> yyidToRoomId = {};
+    var anchorDocs = result["response"]["1"]["docs"];
+    if (anchorDocs != null) {
+      for (var item in anchorDocs) {
+        var yyid = item["yyid"]?.toString() ?? "";
+        var roomId = item["room_id"]?.toString() ?? "";
+        if (yyid.isNotEmpty && roomId.isNotEmpty && roomId != "0") {
+          yyidToRoomId[yyid] = roomId;
+        }
       }
-
-      var title = item["game_introduction"]?.toString() ?? "";
-      if (title.isEmpty) {
-        title = item["game_roomName"]?.toString() ?? "";
-      }
-
-      var roomItem = LiveRoomItem(
-        roomId: item["room_id"].toString(),
-        title: title,
-        cover: cover,
-        userName: item["game_nick"].toString(),
-        online: int.tryParse(item["game_total_count"].toString()) ?? 0,
-      );
-      items.add(roomItem);
     }
-    var hasMore = result["response"]["3"]["numFound"] > (page * 20);
+    
+    var items = <LiveRoomItem>[];
+    // 搜索房间返回的数据在 response["3"]["docs"] 中
+    var docs = result["response"]["3"]["docs"];
+    if (docs != null) {
+      for (var item in docs) {
+        var yyid = item["yyid"]?.toString() ?? "";
+        
+        // 通过 yyid 查找对应的 room_id
+        var roomId = yyidToRoomId[yyid] ?? "";
+        
+        // 跳过无法找到 room_id 的项
+        if (roomId.isEmpty) {
+          continue;
+        }
+
+        var cover = item["game_screenshot"]?.toString() ?? "";
+        if (cover.isNotEmpty && !cover.contains("?")) {
+          cover += "?x-oss-process=style/w338_h190&";
+        }
+
+        var title = item["game_introduction"]?.toString() ?? "";
+        if (title.isEmpty) {
+          title = item["game_roomName"]?.toString() ?? "";
+        }
+
+        var roomItem = LiveRoomItem(
+          roomId: roomId,
+          title: title,
+          cover: cover,
+          userName: item["game_nick"]?.toString() ?? "",
+          online: int.tryParse(item["game_total_count"]?.toString() ?? "0") ?? 0,
+        );
+        items.add(roomItem);
+      }
+    }
+    var numFound = result["response"]["3"]["numFound"] ?? 0;
+    var hasMore = numFound > (page * 20);
     return LiveSearchRoomResult(hasMore: hasMore, items: items);
   }
 
   @override
   Future<LiveSearchAnchorResult> searchAnchors(String keyword,
-      {int page = 1}) async {
+      {int page = 1, bool sortByLiveStatus = false}) async {
+    // 如果开启了按开播状态排序，且是第一页，则加载全部结果后排序
+    if (sortByLiveStatus && page == 1) {
+      return _searchAnchorsWithSort(keyword);
+    }
+    
     var resultText = await HttpClient.instance.getJson(
       "https://search.cdn.huya.com/",
       queryParameters: {
@@ -519,6 +556,56 @@ class HuyaSite implements LiveSite {
     }
     var hasMore = result["response"]["1"]["numFound"] > (page * 20);
     return LiveSearchAnchorResult(hasMore: hasMore, items: items);
+  }
+  
+  /// 加载全部搜索结果并按开播状态排序
+  /// 最多加载前 100 个结果（5 次请求），避免等待时间过长
+  Future<LiveSearchAnchorResult> _searchAnchorsWithSort(String keyword) async {
+    var allItems = <LiveAnchorItem>[];
+    var page = 1;
+    var maxPages = 5;  // 最多加载 5 页（100 个结果）
+    var hasMore = true;
+    
+    while (hasMore && page <= maxPages) {
+      var resultText = await HttpClient.instance.getJson(
+        "https://search.cdn.huya.com/",
+        queryParameters: {
+          "m": "Search",
+          "do": "getSearchContent",
+          "q": keyword,
+          "uid": 0,
+          "v": 1,
+          "typ": -5,
+          "livestate": 0,
+          "rows": 20,
+          "start": (page - 1) * 20,
+        },
+      );
+      var result = json.decode(resultText);
+      
+      for (var item in result["response"]["1"]["docs"]) {
+        var anchorItem = LiveAnchorItem(
+          roomId: item["room_id"].toString(),
+          avatar: item["game_avatarUrl180"].toString(),
+          userName: item["game_nick"].toString(),
+          liveStatus: item["gameLiveOn"],
+        );
+        allItems.add(anchorItem);
+      }
+      
+      var numFound = result["response"]["1"]["numFound"] ?? 0;
+      hasMore = numFound > (page * 20);
+      page++;
+    }
+    
+    // 按开播状态排序：开播的排在前面
+    allItems.sort((a, b) {
+      if (a.liveStatus == b.liveStatus) return 0;
+      return a.liveStatus ? -1 : 1;
+    });
+    
+    // 返回全部结果，不再分页
+    return LiveSearchAnchorResult(hasMore: false, items: allItems);
   }
 
   @override
