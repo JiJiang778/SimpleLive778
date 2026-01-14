@@ -36,74 +36,30 @@ mixin PlayerMixin {
     ),
   );
   /// 初始化播放器并设置参数
+  /// 注意：此方法仅设置音频输出驱动，其他参数使用 mpv 默认值
+  /// 避免设置过多参数导致与 Predidit/media-kit fork 不兼容
   Future<void> initializePlayer() async {
-    if (player.platform is NativePlayer) {
-      final nativePlayer = player.platform as dynamic;
-      
-      try {
-        // 设置音频输出驱动
+    try {
+      if (player.platform is NativePlayer) {
+        final nativePlayer = player.platform as dynamic;
+        
+        // 仅设置音频输出驱动（如果用户启用了自定义输出）
         if (AppSettingsController.instance.customPlayerOutput.value) {
-          await nativePlayer.setProperty(
-            'ao',
-            AppSettingsController.instance.audioOutputDriver.value,
-          );
-        }
-        
-        // 设置缓冲区大小以防止卡顿
-        final bufferSize = AppSettingsController.instance.playerBufferSize.value;
-        await nativePlayer.setProperty('cache', 'yes');
-        await nativePlayer.setProperty('cache-secs', bufferSize.toString());
-        await nativePlayer.setProperty('demuxer-max-bytes', '${bufferSize * 1024 * 1024}');
-        await nativePlayer.setProperty('demuxer-max-back-bytes', '${bufferSize * 1024 * 1024}');
-        
-        // 增加音频缓冲区大小，防止音频欠载
-        await nativePlayer.setProperty('audio-buffer', '0.5');
-        await nativePlayer.setProperty('audio-samplerate', '48000');
-        
-        // 优化视频渲染，防止画面卡死
-        // 改用display-resample同步模式，避免音频问题影响视频
-        await nativePlayer.setProperty('video-sync', 'display-resample');
-        await nativePlayer.setProperty('framedrop', 'vo');
-        
-        // 降低延迟但保持稳定性
-        await nativePlayer.setProperty('cache-pause-initial', 'yes');
-        await nativePlayer.setProperty('cache-pause-wait', '1');
-        
-        // 设置更激进的缓冲策略
-        await nativePlayer.setProperty('cache-pause', 'no');
-        await nativePlayer.setProperty('demuxer-readahead-secs', '10');
-        
-        // 优化高画质播放，减少全屏掉帧（某些属性可能不被所有平台支持）
-        try {
-          await nativePlayer.setProperty('opengl-swapinterval', '1');
-        } catch (e) {
-          Log.d('opengl-swapinterval 设置失败: $e');
-        }
-        
-        try {
-          await nativePlayer.setProperty('video-latency-hacks', 'yes');
-        } catch (e) {
-          Log.d('video-latency-hacks 设置失败: $e');
-        }
-        
-        // Windows平台特殊优化
-        if (Platform.isWindows) {
           try {
-            await nativePlayer.setProperty('gpu-context', 'angle');
+            await nativePlayer.setProperty(
+              'ao',
+              AppSettingsController.instance.audioOutputDriver.value,
+            );
+            Log.d('ao 设置成功');
           } catch (e) {
-            Log.d('gpu-context 设置失败: $e');
-          }
-          
-          try {
-            await nativePlayer.setProperty('hwdec-codecs', 'all');
-          } catch (e) {
-            Log.d('hwdec-codecs 设置失败: $e');
+            Log.d('ao 设置失败: $e');
           }
         }
-      } catch (e) {
-        Log.logPrint('播放器初始化参数设置失败: $e');
-        // 即使设置失败，播放器仍然可以使用默认配置工作
+        
+        Log.d('播放器初始化完成');
       }
+    } catch (e) {
+      Log.d('播放器初始化异常: $e');
     }
   }
 
