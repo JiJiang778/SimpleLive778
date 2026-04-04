@@ -826,406 +826,362 @@ class DouyinSite implements LiveSite {
     return LivePlayUrl(urls: List<String>.from(quality.data));
   }
 
-  @override
-  Future<LiveSearchRoomResult> searchRooms(String keyword,
-      {int page = 1}) async {
-    
-    // 使用抖音直播搜索专用接口（参考LiveParse库实现）
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
-    var uri = Uri.parse(serverUrl)
-        .replace(scheme: "https", port: 443, queryParameters: {
-      "device_platform": "webapp",
-      "aid": "6383",
-      "channel": "channel_pc_web",
-      "search_channel": "aweme_live",
-      "keyword": keyword,
-      "search_source": "switch_tab",
-      "query_correct_type": "1",
-      "is_filter_search": "0",
-      "from_group_id": "",
-      "offset": ((page - 1) * 10).toString(),
-      "count": "10",
-      "pc_client_type": "1",
-      "version_code": "170400",
-      "version_name": "17.4.0",
-      "cookie_enabled": "true",
-      "screen_width": "1980",
-      "screen_height": "1080",
-      "browser_language": "zh-CN",
-      "browser_platform": "Win32",
-      "browser_name": "Edge",
-      "browser_version": "126.0.0.0",
-      "browser_online": "true",
-      "engine_name": "Blink",
-      "engine_version": "126.0.0.0",
-      "os_name": "Windows",
-      "os_version": "10",
-      "cpu_core_num": "12",
-      "device_memory": "8",
-      "platform": "PC",
-      "downlink": "4.7",
-      "effective_type": "4g",
-      "round_trip_time": "100",
-      "webid": "7247041636524377637",
-    });
-    
-    
-    String requlestUrl;
+  /// 通过HTML页面抓取抖音直播搜索结果
+  /// 抖音搜索页面SSR渲染包含直播间数据
+  Future<List<Map<String, dynamic>>> _searchByHtml(String keyword) async {
+    var dyCookie = "";
     try {
-      requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-      if (requlestUrl.isEmpty) {
-        throw Exception("签名后URL为空");
-      }
-    } catch (e) {
-      var errorInfo = StringBuffer();
-      errorInfo.writeln("【抖音签名失败】");
-      errorInfo.writeln("错误类型: ${e.runtimeType}");
-      errorInfo.writeln("错误详情: $e");
-      errorInfo.writeln("");
-      errorInfo.writeln("【可能原因】");
-      errorInfo.writeln("1. 签名算法需要更新");
-      errorInfo.writeln("2. 网络请求被拦截");
-      errorInfo.writeln("");
-      errorInfo.writeln("【解决方案】");
-      errorInfo.writeln("1. 等待应用更新");
-      errorInfo.writeln("2. 在「我的-账号管理」设置自己的Cookie");
-      throw Exception(errorInfo.toString());
+      var headResp = await HttpClient.instance.head(
+        "https://www.douyin.com/root/search/${Uri.encodeComponent(keyword)}?type=live",
+        header: {"User-Agent": kDefaultUserAgent},
+      );
+      headResp.headers["set-cookie"]?.forEach((element) {
+        var c = element.split(";")[0];
+        if (c.contains("ttwid") || c.contains("__ac_nonce") || c.contains("msToken")) {
+          dyCookie += "$c;";
+        }
+      });
+    } catch (_) {}
+
+    if (dyCookie.isEmpty) {
+      var requestHeaders = await getRequestHeaders();
+      dyCookie = requestHeaders["cookie"] ?? "";
     }
-    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
-    var requestHeaders = await getRequestHeaders();
-    var dyCookie = requestHeaders["cookie"] ?? "";
-    
-    dynamic result;
+
+    var html = await HttpClient.instance.getText(
+      "https://www.douyin.com/root/search/${Uri.encodeComponent(keyword)}?type=live",
+      queryParameters: {},
+      header: {
+        "User-Agent": kDefaultUserAgent,
+        "Referer": "https://www.douyin.com/",
+        "Cookie": dyCookie,
+      },
+    );
+
+    // 从HTML中提取RENDER_DATA (URL编码的JSON)
+    var renderMatch = RegExp(r'<script id="RENDER_DATA" type="application/json">(.*?)</script>')
+        .firstMatch(html);
+    if (renderMatch != null) {
+      var encoded = renderMatch.group(1) ?? "";
+      var decoded = Uri.decodeComponent(encoded);
+      try {
+        var renderData = json.decode(decoded);
+        return _extractRoomsFromRenderData(renderData);
+      } catch (_) {}
+    }
+
+    // 备用: 从script中提取 __RENDER_DATA__ 格式
+    var stateMatch = RegExp(r'self\.__pace_f\.push.*?\\"roomInfos\\".*?\]\\n')
+        .firstMatch(html);
+    if (stateMatch != null) {
+      try {
+        var str = stateMatch.group(0) ?? "";
+        str = str.replaceAll('\\"', '"').replaceAll(r'\\', r'\');
+        var rooms = _extractRoomInfoFromString(str);
+        if (rooms.isNotEmpty) return rooms;
+      } catch (_) {}
+    }
+
+    return [];
+  }
+
+  /// 从RENDER_DATA中递归提取直播间信息
+  List<Map<String, dynamic>> _extractRoomsFromRenderData(dynamic data) {
+    var rooms = <Map<String, dynamic>>[];
+    if (data is Map) {
+      // 检查是否包含直播间数据
+      if (data.containsKey("owner") && data.containsKey("title") && data.containsKey("id_str")) {
+        rooms.add(Map<String, dynamic>.from(data));
+        return rooms;
+      }
+      // 检查搜索结果列表
+      if (data.containsKey("rawdata") || data.containsKey("lives")) {
+        var rawdata = data["rawdata"] ?? data["lives"]?["rawdata"];
+        if (rawdata != null) {
+          try {
+            var parsed = rawdata is String ? json.decode(rawdata) : rawdata;
+            if (parsed is Map && parsed.containsKey("owner")) {
+              rooms.add(Map<String, dynamic>.from(parsed));
+            }
+          } catch (_) {}
+        }
+      }
+      // 递归搜索
+      for (var value in data.values) {
+        rooms.addAll(_extractRoomsFromRenderData(value));
+      }
+    } else if (data is List) {
+      for (var item in data) {
+        rooms.addAll(_extractRoomsFromRenderData(item));
+      }
+    }
+    return rooms;
+  }
+
+  /// 从字符串中提取直播间信息
+  List<Map<String, dynamic>> _extractRoomInfoFromString(String str) {
+    var rooms = <Map<String, dynamic>>[];
+    // 匹配所有类似直播间数据的JSON块
+    var matches = RegExp(r'\{"id_str":"(\d+)","status":(\d+).*?"owner":\{.*?"nickname":"(.*?)"').allMatches(str);
+    for (var match in matches) {
+      try {
+        var idStr = match.group(1) ?? "";
+        if (idStr.isNotEmpty) {
+          rooms.add({"id_str": idStr, "partial": true});
+        }
+      } catch (_) {}
+    }
+    return rooms;
+  }
+
+  /// 通过 info_by_scene API 获取直播间详细信息（搜索场景）
+  Future<Map<String, dynamic>?> _getRoomInfoByScene(String roomId) async {
     try {
-      result = await HttpClient.instance.getJson(
+      var requestHeaders = await getRequestHeaders();
+      var uri = Uri.parse("https://live.douyin.com/webcast/room/info_by_scene/")
+          .replace(scheme: "https", port: 443, queryParameters: {
+        "aid": "6383",
+        "app_name": "douyin_web",
+        "live_id": "1",
+        "device_platform": "web",
+        "language": "zh-CN",
+        "cookie_enabled": "true",
+        "screen_width": "1536",
+        "screen_height": "864",
+        "browser_language": "zh-CN",
+        "browser_platform": "Win32",
+        "browser_name": "Edge",
+        "browser_version": "146.0.0.0",
+        "room_id": roomId,
+        "scene": "douyin_pc_search",
+        "channel": "channel_pc_web",
+        "region": "cn",
+        "device_type": "web_device",
+        "os_version": "web",
+        "version_code": "170400",
+        "webcast_sdk_version": "2450",
+      });
+
+      var requlestUrl = uri.toString();
+      try {
+        requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
+      } catch (_) {
+        // 签名失败则使用原始URL
+      }
+
+      var result = await HttpClient.instance.getJson(
         requlestUrl,
         queryParameters: {},
         header: {
-          "Authority": 'live.douyin.com',
-          'accept': 'application/json, text/plain, */*',
-          'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-          'cookie': dyCookie,
-          'referer':
-              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?source=switch_tab&type=live',
-          'user-agent': kDefaultUserAgent,
+          "Authority": "live.douyin.com",
+          "accept": "application/json, text/plain, */*",
+          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+          "cookie": requestHeaders["cookie"] ?? "",
+          "referer": "https://www.douyin.com/",
+          "user-agent": kDefaultUserAgent,
         },
       );
+
+      if (result != null && result["data"] != null) {
+        return result["data"] is Map ? Map<String, dynamic>.from(result["data"]) : null;
+      }
     } catch (e) {
-      // 构建详细的错误信息
-      var errorInfo = StringBuffer();
-      errorInfo.writeln("【抖音搜索失败】");
-      errorInfo.writeln("错误类型: ${e.runtimeType}");
-      errorInfo.writeln("错误详情: $e");
-      errorInfo.writeln("");
-      errorInfo.writeln("【调试信息】");
-      errorInfo.writeln("请求URL长度: ${requlestUrl.length}");
-      errorInfo.writeln("Cookie长度: ${dyCookie.length}");
-      if (dyCookie.isEmpty) {
-        errorInfo.writeln("Cookie: 空（使用默认配置）");
-      } else {
-        errorInfo.writeln("Cookie前50字符: ${dyCookie.substring(0, dyCookie.length > 50 ? 50 : dyCookie.length)}...");
+      CoreLog.d("info_by_scene 失败 [roomId: $roomId]: $e");
+    }
+    return null;
+  }
+
+  /// 从直播间数据中提取 LiveRoomItem
+  LiveRoomItem? _extractRoomItem(Map<String, dynamic> roomData) {
+    try {
+      var owner = roomData["owner"];
+      if (owner == null) return null;
+
+      String roomId = owner["web_rid"]?.toString() ?? "";
+      if (roomId.isEmpty) {
+        roomId = owner["display_id"]?.toString() ?? "";
       }
-      errorInfo.writeln("");
-      
-      // 提供解决建议
-      var errorStr = e.toString();
-      if (errorStr.contains('444')) {
-        errorInfo.writeln("【原因】请求频率过高（错误444）");
-        errorInfo.writeln("【解决方案】");
-        errorInfo.writeln("1. 等待几秒后再试");
-        errorInfo.writeln("2. 在「我的-账号管理」中设置自己的抖音Cookie");
-      } else if (errorStr.contains('403')) {
-        errorInfo.writeln("【原因】访问被限制（错误403）");
-        errorInfo.writeln("【解决方案】");
-        errorInfo.writeln("1. 稍后再试");
-        errorInfo.writeln("2. 设置自己的Cookie");
-      } else if (errorStr.contains('SocketException')) {
-        errorInfo.writeln("【原因】网络连接失败");
-        errorInfo.writeln("【解决方案】检查网络连接");
-      } else if (errorStr.contains('Connection')) {
-        errorInfo.writeln("【原因】连接被中断");
-        errorInfo.writeln("【解决方案】检查网络或防火墙设置");
-      } else if (errorStr.contains('TimeoutException')) {
-        errorInfo.writeln("【原因】请求超时");
-        errorInfo.writeln("【解决方案】检查网络速度");
-      } else {
-        errorInfo.writeln("【可能原因】");
-        errorInfo.writeln("1. 网络问题");
-        errorInfo.writeln("2. 抖音接口变化");
-        errorInfo.writeln("3. Cookie过期或无效");
+      if (roomId.isEmpty) {
+        roomId = roomData["id_str"]?.toString() ?? "";
       }
-      
-      throw Exception(errorInfo.toString());
-    }
-    
-    if (result == "" || result == 'blocked') {
-      throw Exception("抖音直播搜索被限制，请稍后再试");
-    }
-    var items = <LiveRoomItem>[];
-    
-    // 检查返回数据格式 - /live/search/ 接口返回格式
-    if (result["data"] == null) {
-      return LiveSearchRoomResult(hasMore: false, items: items);
-    }
-    
-    // /live/search/ 接口直接返回 data 数组，每个元素包含 lives.rawdata
-    List dataList = [];
-    if (result["data"] is List) {
-      dataList = result["data"];
-    }
-    
-    if (dataList.isEmpty) {
-      return LiveSearchRoomResult(hasMore: false, items: items);
-    }
-    
-    for (var item in dataList) {
-      try {
-        // 检查item类型
-        if (item is! Map) continue;
-        
-        // /live/search/ 接口返回格式：每个item包含 lives.rawdata
-        if (item["lives"] != null) {
-          var lives = item["lives"];
-          
-          // 解析rawdata字段（参考LiveParse库实现）
-          Map<String, dynamic>? liveData;
-          if (lives["rawdata"] != null) {
-            var rawdata = lives["rawdata"];
-            try {
-              liveData = rawdata is String ? json.decode(rawdata) : rawdata;
-            } catch (e) {
-              continue;
-            }
-          }
-          
-          if (liveData != null) {
-            // 从rawdata中提取信息（参考LiveParse库）
-            String? userName = liveData["owner"]?["nickname"]?.toString();
-            String? title = liveData["title"]?.toString() ?? "";
-            String? cover;
-            int online = 0;
-            
-            // roomId 使用 owner.web_rid（参考LiveParse库）
-            String? roomId = liveData["owner"]?["web_rid"]?.toString();
-            if (roomId == null || roomId.isEmpty) {
-              roomId = liveData["id_str"]?.toString();
-            }
-            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
-            
-            // 获取封面
-            if (liveData["cover"] != null && liveData["cover"]["url_list"] != null) {
-              var urlList = liveData["cover"]["url_list"];
-              if (urlList is List && urlList.isNotEmpty) {
-                cover = urlList[0].toString();
-              }
-            }
-            
-            // 获取在线人数
-            if (liveData["user_count"] != null) {
-              online = int.tryParse(liveData["user_count"].toString()) ?? 0;
-            }
-            
-            var roomItem = LiveRoomItem(
-              roomId: roomId,
-              title: title.isEmpty ? (userName ?? "") : title,
-              cover: cover ?? "",
-              userName: userName ?? "",
-              online: online,
-            );
-            items.add(roomItem);
+      if (roomId.isEmpty || roomId == "0") return null;
+
+      String userName = owner["nickname"]?.toString() ?? "";
+      String title = roomData["title"]?.toString() ?? userName;
+      String cover = "";
+      int online = 0;
+
+      // 封面
+      if (roomData["cover"]?["url_list"] != null) {
+        var urlList = roomData["cover"]["url_list"];
+        if (urlList is List && urlList.isNotEmpty) {
+          cover = urlList[0].toString();
+        }
+      }
+
+      // 在线人数 - 优先 user_count，再试 stats
+      online = asT<int?>(roomData["user_count"]) ?? 0;
+      if (online == 0 && roomData["stats"] != null) {
+        online = asT<int?>(roomData["stats"]["total_user"]) ?? 0;
+        if (online == 0) {
+          var userCountStr = roomData["stats"]?["user_count_str"]?.toString();
+          if (userCountStr != null) {
+            online = int.tryParse(userCountStr) ?? 0;
           }
         }
-      } catch (e) {
-        // 解析搜索结果项失败，跳过
-        continue;
       }
-    }
-    
-    // 如果没有找到任何直播间，抛出包含响应数据的异常以便调试
-    if (items.isEmpty && dataList.isNotEmpty) {
-      // 构建调试信息
-      var debugInfo = "抖音搜索未找到直播间，响应数据：\n";
-      debugInfo += "关键词: $keyword, 页码: $page\n";
-      debugInfo += "dataList长度: ${dataList.length}\n";
-      if (dataList.isNotEmpty) {
-        var firstItem = dataList[0];
-        debugInfo += "第一条数据类型: ${firstItem["type"]}\n";
-        debugInfo += "数据样例(前500字符): ${json.encode(firstItem).substring(0, min(500, json.encode(firstItem).length))}";
+      if (online == 0 && roomData["room_view_stats"] != null) {
+        online = asT<int?>(roomData["room_view_stats"]["display_value"]) ?? 0;
       }
-      throw Exception(debugInfo);
+
+      return LiveRoomItem(
+        roomId: roomId,
+        title: title.isEmpty ? userName : title,
+        cover: cover,
+        userName: userName,
+        online: online,
+      );
+    } catch (e) {
+      return null;
     }
-    
-    // 直播搜索API每页返回10条，判断是否还有更多数据
-    return LiveSearchRoomResult(hasMore: items.length >= 10, items: items);
+  }
+
+  /// 从直播间数据中提取 LiveAnchorItem
+  LiveAnchorItem? _extractAnchorItem(Map<String, dynamic> roomData) {
+    try {
+      var owner = roomData["owner"];
+      if (owner == null) return null;
+
+      String roomId = owner["web_rid"]?.toString() ?? "";
+      if (roomId.isEmpty) {
+        roomId = owner["display_id"]?.toString() ?? "";
+      }
+      if (roomId.isEmpty) {
+        roomId = roomData["id_str"]?.toString() ?? "";
+      }
+      if (roomId.isEmpty || roomId == "0") return null;
+
+      String userName = owner["nickname"]?.toString() ?? "";
+      String avatar = "";
+      bool liveStatus = (asT<int?>(roomData["status"]) ?? 0) == 2;
+
+      if (owner["avatar_thumb"]?["url_list"] != null) {
+        var urlList = owner["avatar_thumb"]["url_list"];
+        if (urlList is List && urlList.isNotEmpty) {
+          avatar = urlList[0].toString();
+        }
+      }
+
+      return LiveAnchorItem(
+        roomId: roomId,
+        avatar: avatar,
+        userName: userName,
+        liveStatus: liveStatus,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<LiveSearchRoomResult> searchRooms(String keyword,
+      {int page = 1}) async {
+    // 只支持第一页 (HTML方式)
+    if (page > 1) {
+      return LiveSearchRoomResult(hasMore: false, items: []);
+    }
+
+    var items = <LiveRoomItem>[];
+
+    // 策略1: 通过HTML页面提取搜索结果
+    try {
+      var htmlRooms = await _searchByHtml(keyword);
+      for (var roomData in htmlRooms) {
+        var item = _extractRoomItem(roomData);
+        if (item != null) {
+          items.add(item);
+        }
+      }
+
+      if (items.isNotEmpty) {
+        return LiveSearchRoomResult(hasMore: false, items: items);
+      }
+    } catch (e) {
+      CoreLog.d("HTML搜索失败: $e");
+    }
+
+    // 策略2: 通过 web/enter API 逐个查询（将关键词当作webRid尝试）
+    // 用户可能直接输入了房间号或主播ID
+    if (keyword.isNotEmpty && RegExp(r'^[\w\d_]+$').hasMatch(keyword)) {
+      try {
+        var data = await _getRoomDataByApi(keyword);
+        if (data["data"] != null && data["data"].isNotEmpty) {
+          var roomData = data["data"][0];
+          var roomStatus = (asT<int?>(roomData["status"]) ?? 0) == 2;
+          if (roomStatus) {
+            var item = _extractRoomItem(roomData);
+            if (item != null) {
+              items.add(item);
+              return LiveSearchRoomResult(hasMore: false, items: items);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (items.isEmpty) {
+      throw Exception("抖音搜索暂时不可用，请尝试直接输入房间号进入直播间");
+    }
+
+    return LiveSearchRoomResult(hasMore: false, items: items);
   }
 
   @override
   Future<LiveSearchAnchorResult> searchAnchors(String keyword,
       {int page = 1}) async {
-    // 使用抖音直播搜索专用接口（参考LiveParse库实现）
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
-    var uri = Uri.parse(serverUrl)
-        .replace(scheme: "https", port: 443, queryParameters: {
-      "device_platform": "webapp",
-      "aid": "6383",
-      "channel": "channel_pc_web",
-      "search_channel": "aweme_live",
-      "keyword": keyword,
-      "search_source": "switch_tab",
-      "query_correct_type": "1",
-      "is_filter_search": "0",
-      "from_group_id": "",
-      "offset": ((page - 1) * 10).toString(),
-      "count": "10",
-      "pc_client_type": "1",
-      "version_code": "170400",
-      "version_name": "17.4.0",
-      "cookie_enabled": "true",
-      "screen_width": "1980",
-      "screen_height": "1080",
-      "browser_language": "zh-CN",
-      "browser_platform": "Win32",
-      "browser_name": "Edge",
-      "browser_version": "126.0.0.0",
-      "browser_online": "true",
-      "engine_name": "Blink",
-      "engine_version": "126.0.0.0",
-      "os_name": "Windows",
-      "os_version": "10",
-      "cpu_core_num": "12",
-      "device_memory": "8",
-      "platform": "PC",
-      "downlink": "4.7",
-      "effective_type": "4g",
-      "round_trip_time": "100",
-      "webid": "7247041636524377637",
-    });
-
-    String requlestUrl;
-    try {
-      requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-      if (requlestUrl.isEmpty) {
-        throw Exception("签名后URL为空");
-      }
-    } catch (e) {
-      var errorInfo = StringBuffer();
-      errorInfo.writeln("【抖音签名失败】");
-      errorInfo.writeln("错误详情: $e");
-      errorInfo.writeln("【解决方案】");
-      errorInfo.writeln("1. 等待应用更新");
-      errorInfo.writeln("2. 在「我的-账号管理」设置自己的Cookie");
-      throw Exception(errorInfo.toString());
+    if (page > 1) {
+      return LiveSearchAnchorResult(hasMore: false, items: []);
     }
 
-    // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
-    var requestHeaders = await getRequestHeaders();
-    var dyCookie = requestHeaders["cookie"] ?? "";
-
-    dynamic result;
-    try {
-      result = await HttpClient.instance.getJson(
-        requlestUrl,
-        queryParameters: {},
-        header: {
-          "Authority": 'live.douyin.com',
-          'accept': 'application/json, text/plain, */*',
-          'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-          'cookie': dyCookie,
-          'referer':
-              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?source=switch_tab&type=live',
-          'user-agent': kDefaultUserAgent,
-        },
-      );
-    } catch (e) {
-      var errorInfo = StringBuffer();
-      errorInfo.writeln("【抖音主播搜索失败】");
-      errorInfo.writeln("错误详情: $e");
-      var errorStr = e.toString();
-      if (errorStr.contains('444') || errorStr.contains('403')) {
-        errorInfo.writeln("【原因】请求频率过高");
-        errorInfo.writeln("【解决方案】等待几秒后再试，或设置自己的Cookie");
-      }
-      throw Exception(errorInfo.toString());
-    }
-
-    if (result == "" || result == 'blocked') {
-      throw Exception("抖音直播搜索被限制，请稍后再试");
-    }
     var items = <LiveAnchorItem>[];
 
-    // 检查返回数据格式 - /live/search/ 接口返回格式
-    if (result["data"] == null) {
-      return LiveSearchAnchorResult(hasMore: false, items: items);
+    // 策略1: 通过HTML页面提取搜索结果
+    try {
+      var htmlRooms = await _searchByHtml(keyword);
+      for (var roomData in htmlRooms) {
+        var item = _extractAnchorItem(roomData);
+        if (item != null) {
+          items.add(item);
+        }
+      }
+
+      if (items.isNotEmpty) {
+        return LiveSearchAnchorResult(hasMore: false, items: items);
+      }
+    } catch (e) {
+      CoreLog.d("HTML主播搜索失败: $e");
     }
 
-    // /live/search/ 接口直接返回 data 数组
-    List dataList = [];
-    if (result["data"] is List) {
-      dataList = result["data"];
-    }
-
-    if (dataList.isEmpty) {
-      return LiveSearchAnchorResult(hasMore: false, items: items);
-    }
-
-    for (var item in dataList) {
+    // 策略2: 关键词当作房间号/用户ID直接查询
+    if (keyword.isNotEmpty && RegExp(r'^[\w\d_]+$').hasMatch(keyword)) {
       try {
-        // 检查item类型
-        if (item is! Map) continue;
-
-        // /live/search/ 接口返回格式：每个item包含 lives.rawdata
-        if (item["lives"] != null) {
-          var lives = item["lives"];
-
-          // 解析rawdata字段（参考LiveParse库实现）
-          Map<String, dynamic>? liveData;
-          if (lives["rawdata"] != null) {
-            var rawdata = lives["rawdata"];
-            try {
-              liveData = rawdata is String ? json.decode(rawdata) : rawdata;
-            } catch (e) {
-              continue;
-            }
-          }
-
-          if (liveData != null) {
-            // 从rawdata中提取信息（参考LiveParse库）
-            String? userName = liveData["owner"]?["nickname"]?.toString();
-            String? avatar;
-            bool liveStatus = liveData["status"] == 2;
-
-            // roomId 使用 owner.web_rid（参考LiveParse库）
-            String? roomId = liveData["owner"]?["web_rid"]?.toString();
-            if (roomId == null || roomId.isEmpty) {
-              roomId = liveData["id_str"]?.toString();
-            }
-            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
-
-            // 获取头像
-            if (liveData["owner"]?["avatar_thumb"]?["url_list"] != null) {
-              var urlList = liveData["owner"]["avatar_thumb"]["url_list"];
-              if (urlList is List && urlList.isNotEmpty) {
-                avatar = urlList[0].toString();
-              }
-            }
-
-            var anchorItem = LiveAnchorItem(
-              roomId: roomId,
-              avatar: avatar ?? "",
-              userName: userName ?? "",
-              liveStatus: liveStatus,
-            );
-            items.add(anchorItem);
+        var data = await _getRoomDataByApi(keyword);
+        if (data["data"] != null && data["data"].isNotEmpty) {
+          var roomData = data["data"][0];
+          var item = _extractAnchorItem(roomData);
+          if (item != null) {
+            items.add(item);
+            return LiveSearchAnchorResult(hasMore: false, items: items);
           }
         }
-      } catch (e) {
-        // 解析主播搜索结果项失败，跳过
-        continue;
-      }
+      } catch (_) {}
     }
 
-    // 直播搜索API每页返回10条，判断是否还有更多数据
-    return LiveSearchAnchorResult(hasMore: items.length >= 10, items: items);
+    if (items.isEmpty) {
+      throw Exception("抖音搜索暂时不可用，请尝试直接输入房间号进入直播间");
+    }
+
+    return LiveSearchAnchorResult(hasMore: false, items: items);
   }
 
   @override
