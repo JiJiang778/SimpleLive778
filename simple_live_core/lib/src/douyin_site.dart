@@ -830,46 +830,43 @@ class DouyinSite implements LiveSite {
   Future<LiveSearchRoomResult> searchRooms(String keyword,
       {int page = 1}) async {
     
-    // 使用抖音通用搜索接口
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/single/";
+    // 使用抖音直播搜索专用接口（参考LiveParse库实现）
+    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
     var uri = Uri.parse(serverUrl)
         .replace(scheme: "https", port: 443, queryParameters: {
       "device_platform": "webapp",
       "aid": "6383",
       "channel": "channel_pc_web",
-      "search_channel": "aweme_general",
+      "search_channel": "aweme_live",
       "keyword": keyword,
-      "search_source": "tab_search",
+      "search_source": "switch_tab",
       "query_correct_type": "1",
       "is_filter_search": "0",
       "from_group_id": "",
-      "offset": ((page - 1) * 15).toString(),
-      "count": "15",
-      "need_filter_settings": "0",
-      "list_type": "single",
-      "update_version_code": "170400",
+      "offset": ((page - 1) * 10).toString(),
+      "count": "10",
       "pc_client_type": "1",
       "version_code": "170400",
       "version_name": "17.4.0",
       "cookie_enabled": "true",
-      "screen_width": "1536",
-      "screen_height": "864",
+      "screen_width": "1980",
+      "screen_height": "1080",
       "browser_language": "zh-CN",
       "browser_platform": "Win32",
       "browser_name": "Edge",
-      "browser_version": "143.0.0.0",
+      "browser_version": "126.0.0.0",
       "browser_online": "true",
       "engine_name": "Blink",
-      "engine_version": "143.0.0.0",
+      "engine_version": "126.0.0.0",
       "os_name": "Windows",
       "os_version": "10",
+      "cpu_core_num": "12",
       "device_memory": "8",
       "platform": "PC",
-      "downlink": "10",
+      "downlink": "4.7",
       "effective_type": "4g",
-      "round_trip_time": "50",
-      // 添加tab_name参数指定搜索直播
-      "tab_name": "live",
+      "round_trip_time": "100",
+      "webid": "7247041636524377637",
     });
     
     
@@ -879,7 +876,7 @@ class DouyinSite implements LiveSite {
       if (requlestUrl.isEmpty) {
         throw Exception("签名后URL为空");
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       var errorInfo = StringBuffer();
       errorInfo.writeln("【抖音签名失败】");
       errorInfo.writeln("错误类型: ${e.runtimeType}");
@@ -904,24 +901,16 @@ class DouyinSite implements LiveSite {
         requlestUrl,
         queryParameters: {},
         header: {
-          "Authority": 'www.douyin.com',
+          "Authority": 'live.douyin.com',
           'accept': 'application/json, text/plain, */*',
           'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
           'cookie': dyCookie,
-          'priority': 'u=1, i',
           'referer':
-              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=live',
-          'sec-ch-ua':
-              '"Microsoft Edge";v="143", "Chromium";v="143", "Not.A/Brand";v="24"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"Windows"',
-          'sec-fetch-dest': 'empty',
-          'sec-fetch-mode': 'cors',
-          'sec-fetch-site': 'same-origin',
+              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?source=switch_tab&type=live',
           'user-agent': kDefaultUserAgent,
         },
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       // 构建详细的错误信息
       var errorInfo = StringBuffer();
       errorInfo.writeln("【抖音搜索失败】");
@@ -974,28 +963,15 @@ class DouyinSite implements LiveSite {
     }
     var items = <LiveRoomItem>[];
     
-    // 检查返回数据格式 - 新接口可能使用不同的数据结构
+    // 检查返回数据格式 - /live/search/ 接口返回格式
     if (result["data"] == null) {
       return LiveSearchRoomResult(hasMore: false, items: items);
     }
     
-    // 不输出控制台日志
-    
-    // 通用搜索API返回格式可能不同，需要适配
+    // /live/search/ 接口直接返回 data 数组，每个元素包含 lives.rawdata
     List dataList = [];
     if (result["data"] is List) {
       dataList = result["data"];
-    } else if (result["data"] is Map) {
-      // 尝试从Map中提取数据列表
-      if (result["data"]["data"] != null) {
-        dataList = result["data"]["data"];
-      } else if (result["data"]["list"] != null) {
-        dataList = result["data"]["list"];
-      } else if (result["data"]["aweme_list"] != null) {
-        dataList = result["data"]["aweme_list"];
-      } else if (result["data"]["live_list"] != null) {
-        dataList = result["data"]["live_list"];
-      }
     }
     
     if (dataList.isEmpty) {
@@ -1007,34 +983,34 @@ class DouyinSite implements LiveSite {
         // 检查item类型
         if (item is! Map) continue;
         
-        // 处理type=1的直播搜索结果（新格式）
-        if (item["type"] == 1 && item["lives"] != null) {
+        // /live/search/ 接口返回格式：每个item包含 lives.rawdata
+        if (item["lives"] != null) {
           var lives = item["lives"];
           
-          // 解析rawdata字段
+          // 解析rawdata字段（参考LiveParse库实现）
           Map<String, dynamic>? liveData;
           if (lives["rawdata"] != null) {
             var rawdata = lives["rawdata"];
             try {
               liveData = rawdata is String ? json.decode(rawdata) : rawdata;
             } catch (e) {
-              if (e is FormatException) {
-                CoreLog.error("解析rawdata失败: ${e.message}");
-                continue;
-              }
-              rethrow;
+              continue;
             }
           }
           
           if (liveData != null) {
-            // 从rawdata中提取信息
-            String? roomId = liveData["id_str"]?.toString() ?? liveData["id"]?.toString();
-            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
-            
+            // 从rawdata中提取信息（参考LiveParse库）
+            String? userName = liveData["owner"]?["nickname"]?.toString();
             String? title = liveData["title"]?.toString() ?? "";
             String? cover;
-            String? userName;
             int online = 0;
+            
+            // roomId 使用 owner.web_rid（参考LiveParse库）
+            String? roomId = liveData["owner"]?["web_rid"]?.toString();
+            if (roomId == null || roomId.isEmpty) {
+              roomId = liveData["id_str"]?.toString();
+            }
+            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
             
             // 获取封面
             if (liveData["cover"] != null && liveData["cover"]["url_list"] != null) {
@@ -1044,35 +1020,8 @@ class DouyinSite implements LiveSite {
               }
             }
             
-            // 获取主播信息
-            if (liveData["owner"] != null) {
-              userName = liveData["owner"]["nickname"]?.toString();
-              // 如果owner有web_rid，优先使用
-              var webRid = liveData["owner"]["web_rid"]?.toString();
-              if (webRid != null && webRid.isNotEmpty) {
-                roomId = webRid;
-              }
-            }
-            
-            // 从author字段补充信息
-            if (lives["author"] != null) {
-              userName ??= lives["author"]["nickname"]?.toString();
-              // 如果还没有封面，从author获取头像作为封面
-              if (cover == null || cover.isEmpty) {
-                var avatar = lives["author"]["avatar_larger"];
-                if (avatar != null && avatar["url_list"] != null) {
-                  var urlList = avatar["url_list"];
-                  if (urlList is List && urlList.isNotEmpty) {
-                    cover = urlList[0].toString();
-                  }
-                }
-              }
-            }
-            
             // 获取在线人数
-            if (liveData["stats"] != null) {
-              online = int.tryParse(liveData["stats"]["total_user"]?.toString() ?? "0") ?? 0;
-            } else if (liveData["user_count"] != null) {
+            if (liveData["user_count"] != null) {
               online = int.tryParse(liveData["user_count"].toString()) ?? 0;
             }
             
@@ -1084,102 +1033,8 @@ class DouyinSite implements LiveSite {
               online: online,
             );
             items.add(roomItem);
-            continue;
           }
         }
-        
-        // 处理其他格式的直播间数据
-        var liveRoom = item["live_room"];
-        var liveUser = item["live_user"];
-        var liveInfo = item["live"];
-        
-        // 尝试从多个字段获取数据
-        String? roomId;
-        String? title;
-        String? cover;
-        String? userName;
-        int? online = 0;
-        
-        // 获取房间ID
-        if (liveRoom != null && liveRoom["web_rid"] != null) {
-          roomId = liveRoom["web_rid"].toString();
-        } else if (liveUser != null && liveUser["room_id"] != null) {
-          roomId = liveUser["room_id"].toString();
-        } else if (item["room_id"] != null) {
-          roomId = item["room_id"].toString();
-        }
-        
-        if (roomId == null || roomId.isEmpty || roomId == "0") {
-          // 尝试旧格式: type=4表示用户/主播结果
-          if (item["type"] == 4 && item["user_list"] != null) {
-              var userList = item["user_list"] as List;
-              for (var user in userList) {
-                try {
-                  var userInfo = user["user_info"];
-                  if (userInfo == null) continue;
-                  
-                  // 获取房间ID
-                  roomId = userInfo["room_id"]?.toString();
-                  if (roomId == null || roomId.isEmpty || roomId == "0") {
-                    continue; // 跳过没有直播的用户
-                  }
-                  
-                  var roomItem = LiveRoomItem(
-                    roomId: roomId,
-                    title: userInfo["nickname"]?.toString() ?? "",
-                    cover: userInfo["avatar_larger"]?["url_list"]?[0]?.toString() ?? "",
-                    userName: userInfo["nickname"]?.toString() ?? "",
-                    online: 0,
-                  );
-                  items.add(roomItem);
-                } catch (e) {
-                  continue;
-                }
-              }
-            }
-            continue;
-          }
-          
-        // 获取标题
-        if (liveRoom != null && liveRoom["title"] != null) {
-          title = liveRoom["title"].toString();
-        } else if (liveInfo != null && liveInfo["title"] != null) {
-          title = liveInfo["title"].toString();
-        }
-        
-        // 获取封面
-        if (liveRoom != null && liveRoom["cover"] != null) {
-          var coverData = liveRoom["cover"];
-          if (coverData is Map && coverData["url_list"] != null) {
-            var urlList = coverData["url_list"];
-            if (urlList is List && urlList.isNotEmpty) {
-              cover = urlList[0].toString();
-            }
-          } else if (coverData is String) {
-            cover = coverData;
-          }
-        }
-        
-        // 获取用户名
-        if (liveUser != null && liveUser["nickname"] != null) {
-          userName = liveUser["nickname"].toString();
-        } else if (liveRoom != null && liveRoom["owner"] != null && liveRoom["owner"]["nickname"] != null) {
-          userName = liveRoom["owner"]["nickname"].toString();
-        }
-        
-        // 获取在线人数
-        if (liveRoom != null && liveRoom["user_count"] != null) {
-          online = int.tryParse(liveRoom["user_count"].toString()) ?? 0;
-        }
-        
-        var roomItem = LiveRoomItem(
-          roomId: roomId,
-          title: title ?? userName ?? "",
-          cover: cover ?? "",
-          userName: userName ?? "",
-          online: online,
-        );
-        items.add(roomItem);
       } catch (e) {
         // 解析搜索结果项失败，跳过
         continue;
@@ -1200,178 +1055,160 @@ class DouyinSite implements LiveSite {
       throw Exception(debugInfo);
     }
     
-    // 直播搜索API每页返回15条，判断是否还有更多数据
-    return LiveSearchRoomResult(hasMore: items.length >= 15, items: items);
+    // 直播搜索API每页返回10条，判断是否还有更多数据
+    return LiveSearchRoomResult(hasMore: items.length >= 10, items: items);
   }
 
   @override
   Future<LiveSearchAnchorResult> searchAnchors(String keyword,
       {int page = 1}) async {
-    // 使用与searchRooms相同的搜索接口
-    String serverUrl = "https://www.douyin.com/aweme/v1/web/general/search/single/";
+    // 使用抖音直播搜索专用接口（参考LiveParse库实现）
+    String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
     var uri = Uri.parse(serverUrl)
         .replace(scheme: "https", port: 443, queryParameters: {
       "device_platform": "webapp",
       "aid": "6383",
       "channel": "channel_pc_web",
-      "search_channel": "aweme_general",
+      "search_channel": "aweme_live",
       "keyword": keyword,
-      "search_source": "tab_search",
+      "search_source": "switch_tab",
       "query_correct_type": "1",
       "is_filter_search": "0",
       "from_group_id": "",
-      "offset": ((page - 1) * 15).toString(),
-      "count": "15",
-      "need_filter_settings": "0",
-      "list_type": "single",
-      "update_version_code": "170400",
+      "offset": ((page - 1) * 10).toString(),
+      "count": "10",
       "pc_client_type": "1",
       "version_code": "170400",
       "version_name": "17.4.0",
       "cookie_enabled": "true",
-      "screen_width": "1536",
-      "screen_height": "864",
+      "screen_width": "1980",
+      "screen_height": "1080",
       "browser_language": "zh-CN",
       "browser_platform": "Win32",
       "browser_name": "Edge",
-      "browser_version": "143.0.0.0",
+      "browser_version": "126.0.0.0",
       "browser_online": "true",
       "engine_name": "Blink",
-      "engine_version": "143.0.0.0",
+      "engine_version": "126.0.0.0",
       "os_name": "Windows",
       "os_version": "10",
+      "cpu_core_num": "12",
       "device_memory": "8",
       "platform": "PC",
-      "downlink": "10",
+      "downlink": "4.7",
       "effective_type": "4g",
-      "round_trip_time": "50",
-      "tab_name": "live",
+      "round_trip_time": "100",
+      "webid": "7247041636524377637",
     });
-    var requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
-    
+
+    String requlestUrl;
+    try {
+      requlestUrl = await getAbogusUrl(uri.toString(), kDefaultUserAgent);
+      if (requlestUrl.isEmpty) {
+        throw Exception("签名后URL为空");
+      }
+    } catch (e) {
+      var errorInfo = StringBuffer();
+      errorInfo.writeln("【抖音签名失败】");
+      errorInfo.writeln("错误详情: $e");
+      errorInfo.writeln("【解决方案】");
+      errorInfo.writeln("1. 等待应用更新");
+      errorInfo.writeln("2. 在「我的-账号管理」设置自己的Cookie");
+      throw Exception(errorInfo.toString());
+    }
+
     // 使用 getRequestHeaders 获取 Cookie（包含默认 ttwid 或用户设置的 Cookie）
     var requestHeaders = await getRequestHeaders();
     var dyCookie = requestHeaders["cookie"] ?? "";
 
-    var result = await HttpClient.instance.getJson(
-      requlestUrl,
-      queryParameters: {},
-      header: {
-        "Authority": 'www.douyin.com',
-        'accept': 'application/json, text/plain, */*',
-        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'cookie': dyCookie,
-        'priority': 'u=1, i',
-        'referer':
-            'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=live',
-        'sec-ch-ua':
-            '"Microsoft Edge";v="143", "Chromium";v="143", "Not.A/Brand";v="24"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'user-agent': kDefaultUserAgent,
-      },
-    );
+    dynamic result;
+    try {
+      result = await HttpClient.instance.getJson(
+        requlestUrl,
+        queryParameters: {},
+        header: {
+          "Authority": 'live.douyin.com',
+          'accept': 'application/json, text/plain, */*',
+          'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'cookie': dyCookie,
+          'referer':
+              'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?source=switch_tab&type=live',
+          'user-agent': kDefaultUserAgent,
+        },
+      );
+    } catch (e) {
+      var errorInfo = StringBuffer();
+      errorInfo.writeln("【抖音主播搜索失败】");
+      errorInfo.writeln("错误详情: $e");
+      var errorStr = e.toString();
+      if (errorStr.contains('444') || errorStr.contains('403')) {
+        errorInfo.writeln("【原因】请求频率过高");
+        errorInfo.writeln("【解决方案】等待几秒后再试，或设置自己的Cookie");
+      }
+      throw Exception(errorInfo.toString());
+    }
+
     if (result == "" || result == 'blocked') {
       throw Exception("抖音直播搜索被限制，请稍后再试");
     }
     var items = <LiveAnchorItem>[];
-    
-    // 使用与searchRooms相同的数据解析逻辑
+
+    // 检查返回数据格式 - /live/search/ 接口返回格式
     if (result["data"] == null) {
       return LiveSearchAnchorResult(hasMore: false, items: items);
     }
-    
-    // 不输出控制台日志
-    
-    // 通用搜索API返回格式可能不同，需要适配
+
+    // /live/search/ 接口直接返回 data 数组
     List dataList = [];
     if (result["data"] is List) {
       dataList = result["data"];
-    } else if (result["data"] is Map) {
-      // 尝试从Map中提取数据列表
-      if (result["data"]["data"] != null) {
-        dataList = result["data"]["data"];
-      } else if (result["data"]["list"] != null) {
-        dataList = result["data"]["list"];
-      } else if (result["data"]["aweme_list"] != null) {
-        dataList = result["data"]["aweme_list"];
-      } else if (result["data"]["live_list"] != null) {
-        dataList = result["data"]["live_list"];
-      }
     }
-    
+
     if (dataList.isEmpty) {
       return LiveSearchAnchorResult(hasMore: false, items: items);
     }
-    
+
     for (var item in dataList) {
       try {
         // 检查item类型
         if (item is! Map) continue;
-        
-        // 处理type=1的直播搜索结果（新格式）
-        if (item["type"] == 1 && item["lives"] != null) {
+
+        // /live/search/ 接口返回格式：每个item包含 lives.rawdata
+        if (item["lives"] != null) {
           var lives = item["lives"];
-          
-          // 解析rawdata字段
+
+          // 解析rawdata字段（参考LiveParse库实现）
           Map<String, dynamic>? liveData;
           if (lives["rawdata"] != null) {
             var rawdata = lives["rawdata"];
             try {
               liveData = rawdata is String ? json.decode(rawdata) : rawdata;
             } catch (e) {
-              if (e is FormatException) {
-                CoreLog.error("解析rawdata失败: ${e.message}");
-                continue;
-              }
-              rethrow;
+              continue;
             }
           }
-          
+
           if (liveData != null) {
-            // 从rawdata中提取信息
-            String? roomId = liveData["id_str"]?.toString() ?? liveData["id"]?.toString();
-            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
-            
-            String? userName;
+            // 从rawdata中提取信息（参考LiveParse库）
+            String? userName = liveData["owner"]?["nickname"]?.toString();
             String? avatar;
-            bool liveStatus = liveData["status"] == 2; // status=2表示正在直播
-            
-            // 获取主播信息
-            if (liveData["owner"] != null) {
-              userName = liveData["owner"]["nickname"]?.toString();
-              // 如果owner有web_rid，优先使用
-              var webRid = liveData["owner"]["web_rid"]?.toString();
-              if (webRid != null && webRid.isNotEmpty) {
-                roomId = webRid;
-              }
-              // 获取头像
-              if (liveData["owner"]["avatar_thumb"] != null) {
-                var avatarThumb = liveData["owner"]["avatar_thumb"];
-                if (avatarThumb["url_list"] != null && (avatarThumb["url_list"] as List).isNotEmpty) {
-                  avatar = avatarThumb["url_list"][0].toString();
-                }
+            bool liveStatus = liveData["status"] == 2;
+
+            // roomId 使用 owner.web_rid（参考LiveParse库）
+            String? roomId = liveData["owner"]?["web_rid"]?.toString();
+            if (roomId == null || roomId.isEmpty) {
+              roomId = liveData["id_str"]?.toString();
+            }
+            if (roomId == null || roomId.isEmpty || roomId == "0") continue;
+
+            // 获取头像
+            if (liveData["owner"]?["avatar_thumb"]?["url_list"] != null) {
+              var urlList = liveData["owner"]["avatar_thumb"]["url_list"];
+              if (urlList is List && urlList.isNotEmpty) {
+                avatar = urlList[0].toString();
               }
             }
-            
-            // 从author字段补充信息
-            if (lives["author"] != null) {
-              userName ??= lives["author"]["nickname"]?.toString();
-              // 如果还没有头像，从author获取
-              if (avatar == null || avatar.isEmpty) {
-                var avatarData = lives["author"]["avatar_larger"] ?? lives["author"]["avatar_thumb"];
-                if (avatarData != null && avatarData["url_list"] != null) {
-                  var urlList = avatarData["url_list"];
-                  if (urlList is List && urlList.isNotEmpty) {
-                    avatar = urlList[0].toString();
-                  }
-                }
-              }
-            }
-            
+
             var anchorItem = LiveAnchorItem(
               roomId: roomId,
               avatar: avatar ?? "",
@@ -1379,81 +1216,6 @@ class DouyinSite implements LiveSite {
               liveStatus: liveStatus,
             );
             items.add(anchorItem);
-            continue;
-          }
-        }
-        
-        // 处理其他格式的主播数据
-        var liveRoom = item["live_room"];
-        var liveUser = item["live_user"];
-        
-        String? roomId;
-        String? userName;
-        String? avatar;
-        bool liveStatus = false;
-        
-        // 获取房间ID和用户信息
-        if (liveRoom != null && liveRoom["web_rid"] != null) {
-          roomId = liveRoom["web_rid"].toString();
-          liveStatus = true; // 有直播间信息说明正在直播
-          // 从liveRoom获取用户信息
-          if (liveRoom["owner"] != null) {
-            userName = liveRoom["owner"]["nickname"]?.toString();
-          }
-        } else if (liveUser != null) {
-          // 从liveUser获取信息
-          roomId = liveUser["room_id"]?.toString();
-          userName = liveUser["nickname"]?.toString();
-          liveStatus = liveUser["is_living"] == true;
-          // 获取头像
-          if (liveUser["avatar_thumb"] != null) {
-            var avatarData = liveUser["avatar_thumb"];
-            if (avatarData is Map && avatarData["url_list"] != null) {
-              var urlList = avatarData["url_list"];
-              if (urlList is List && urlList.isNotEmpty) {
-                avatar = urlList[0].toString();
-              }
-            }
-          }
-        } else if (item["room_id"] != null) {
-          roomId = item["room_id"].toString();
-        }
-        
-        if (roomId != null && roomId.isNotEmpty && roomId != "0") {
-          var anchorItem = LiveAnchorItem(
-            roomId: roomId,
-            avatar: avatar ?? "",
-            userName: userName ?? "",
-            liveStatus: liveStatus,
-          );
-          items.add(anchorItem);
-          continue;
-        }
-        
-        // 尝试旧格式: type=4表示用户/主播结果
-        if (item["type"] == 4 && item["user_list"] != null) {
-          var userList = item["user_list"] as List;
-          for (var user in userList) {
-            try {
-              var userInfo = user["user_info"];
-              if (userInfo == null) continue;
-              
-              var roomId = userInfo["room_id"]?.toString();
-              if (roomId == null || roomId.isEmpty || roomId == "0") {
-                continue;
-              }
-              
-              var anchorItem = LiveAnchorItem(
-                roomId: roomId,
-                avatar: userInfo["avatar_larger"]?["url_list"]?[0]?.toString() ?? "",
-                userName: userInfo["nickname"]?.toString() ?? "",
-                liveStatus: true, // 有room_id就表示在直播
-              );
-              items.add(anchorItem);
-            } catch (e) {
-              // 解析用户项失败，跳过
-              continue;
-            }
           }
         }
       } catch (e) {
@@ -1461,23 +1223,9 @@ class DouyinSite implements LiveSite {
         continue;
       }
     }
-    
-    // 如果没有找到任何主播，抛出包含响应数据的异常以便调试
-    if (items.isEmpty && dataList.isNotEmpty) {
-      // 构建调试信息
-      var debugInfo = "抖音主播搜索未找到结果，响应数据：\n";
-      debugInfo += "关键词: $keyword, 页码: $page\n";
-      debugInfo += "dataList长度: ${dataList.length}\n";
-      if (dataList.isNotEmpty) {
-        var firstItem = dataList[0];
-        debugInfo += "第一条数据类型: ${firstItem["type"]}\n";
-        debugInfo += "数据样例(前500字符): ${json.encode(firstItem).substring(0, min(500, json.encode(firstItem).length))}";
-      }
-      throw Exception(debugInfo);
-    }
-    
-    // 直播搜索API每页返回15条，判断是否还有更多数据
-    return LiveSearchAnchorResult(hasMore: items.length >= 15, items: items);
+
+    // 直播搜索API每页返回10条，判断是否还有更多数据
+    return LiveSearchAnchorResult(hasMore: items.length >= 10, items: items);
   }
 
   @override
