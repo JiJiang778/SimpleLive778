@@ -21,8 +21,8 @@ class SuperChatCard extends StatefulWidget {
   State<SuperChatCard> createState() => _SuperChatCardState();
 }
 
-class _SuperChatCardState extends State<SuperChatCard> {
-  late Timer timer;
+class _SuperChatCardState extends State<SuperChatCard> with WidgetsBindingObserver {
+  Timer? timer;
 
   int countdown = 0;
 
@@ -34,14 +34,33 @@ class _SuperChatCardState extends State<SuperChatCard> {
     countdown = endTime - currentTime;
 
     timer = Timer.periodic(const Duration(seconds: 1), timerCallback);
+    WidgetsBinding.instance.addObserver(this);
 
     super.initState();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      timer?.cancel();
+      timer = null;
+    } else if (state == AppLifecycleState.resumed) {
+      // 重新计算剩余时间
+      var currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      var endTime = widget.message.endTime.millisecondsSinceEpoch ~/ 1000;
+      countdown = endTime - currentTime;
+      if (countdown > 0) {
+        timer = Timer.periodic(const Duration(seconds: 1), timerCallback);
+      } else {
+        widget.onExpire?.call();
+      }
+    }
   }
 
   void timerCallback(e) {
     if (countdown <= 0) {
       widget.onExpire?.call();
-      timer.cancel();
+      timer?.cancel();
       return;
     }
 
@@ -123,7 +142,8 @@ class _SuperChatCardState extends State<SuperChatCard> {
 
   @override
   void dispose() {
-    timer.cancel();
+    timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 }
