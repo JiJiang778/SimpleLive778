@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:simple_live_app/app/app_style.dart';
 
 class ShadowCard extends StatelessWidget {
   final Widget child;
   final double radius;
   final Function()? onTap;
+  final Function()? onLongPress;
   const ShadowCard({
     required this.child,
-    this.radius = 8.0,
+    this.radius = 12.0,
     this.onTap,
+    this.onLongPress,
     Key? key,
   }) : super(key: key);
 
@@ -19,26 +20,35 @@ class ShadowCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         boxShadow: Get.isDarkMode
-            ? []
+            ? [
+                BoxShadow(
+                  blurRadius: 8,
+                  color: Colors.black.withAlpha(40),
+                  offset: const Offset(0, 2),
+                )
+              ]
             : [
                 BoxShadow(
+                  blurRadius: 12,
+                  color: Colors.black.withAlpha(30),
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
                   blurRadius: 4,
-                  color: Colors.grey.withAlpha(50),
-                )
+                  color: Colors.black.withAlpha(10),
+                  offset: const Offset(0, 1),
+                ),
               ],
       ),
       child: Material(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           borderRadius: BorderRadius.circular(radius),
           onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: AppStyle.radius8,
-            ),
-            child: child,
-          ),
+          onLongPress: onLongPress,
+          child: child,
         ),
       ),
     );
