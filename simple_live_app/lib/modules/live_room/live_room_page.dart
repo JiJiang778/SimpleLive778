@@ -4,7 +4,6 @@ import 'package:floating/floating.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:lottie/lottie.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
@@ -293,11 +292,39 @@ class LiveRoomPage extends GetView<LiveRoomController> {
         // 未开播提示层
         Obx(
           () => Visibility(
-            visible: !controller.liveStatus.value && !controller.loadError.value,
+            visible: !controller.liveStatus.value && !controller.loadError.value && !controller.isPlayerLoading.value,
             child: const Center(
               child: Text(
                 "未开播",
                 style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+        // 播放器内加载指示器
+        Obx(
+          () => Visibility(
+            visible: controller.isPlayerLoading.value,
+            child: Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      "加载中...",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -310,36 +337,36 @@ class LiveRoomPage extends GetView<LiveRoomController> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.withAlpha(25),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 4,
+            color: Colors.black.withAlpha(10),
+            offset: const Offset(0, 1),
           ),
-          bottom: BorderSide(
-            color: Colors.grey.withAlpha(25),
-          ),
-        ),
+        ],
       ),
-      padding: AppStyle.edgeInsetsA8.copyWith(
-        left: 12,
-        right: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Obx(
         () => Row(
-          mainAxisAlignment: MainAxisAlignment.start,
           children: [
+            // 头像
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.withAlpha(50)),
-                borderRadius: AppStyle.radius24,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withAlpha(60),
+                  width: 2,
+                ),
               ),
               child: NetImage(
                 controller.detail.value?.userAvatar ?? "",
-                width: 48,
-                height: 48,
-                borderRadius: 24,
+                width: 44,
+                height: 44,
+                borderRadius: 22,
               ),
             ),
-            AppStyle.hGap12,
+            const SizedBox(width: 12),
+            // 信息
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,20 +375,24 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                     controller.detail.value?.userName ?? "",
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  AppStyle.vGap4,
+                  const SizedBox(height: 3),
                   Row(
                     children: [
                       Image.asset(
                         controller.site.logo,
-                        width: 20,
+                        width: 16,
                       ),
-                      AppStyle.hGap4,
+                      const SizedBox(width: 4),
                       Text(
                         controller.site.name,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
                         ),
                       ),
                     ],
@@ -369,26 +400,59 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                 ],
               ),
             ),
-            AppStyle.hGap12,
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Remix.fire_fill,
-                  size: 20,
-                  color: Colors.orange,
-                ),
-                AppStyle.hGap4,
-                Obx(
-                  () => Text(
-                    Utils.onlineToString(
-                      controller.online.value,
-                      exactDisplay: AppSettingsController.instance.roomOnlineExactDisplay.value,
+            // 人数按钮
+            Obx(
+              () => Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: controller.fetchRealtimeOnline,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.orange.withAlpha(30),
+                          Colors.deepOrange.withAlpha(20),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.orange.withAlpha(60)),
                     ),
-                    style: const TextStyle(fontSize: 14),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        controller.isFetchingOnline.value
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.orange,
+                                ),
+                              )
+                            : const Icon(
+                                Remix.fire_fill,
+                                size: 16,
+                                color: Colors.orange,
+                              ),
+                        const SizedBox(width: 5),
+                        Text(
+                          Utils.onlineToString(
+                            controller.online.value,
+                            exactDisplay: AppSettingsController.instance.roomOnlineExactDisplay.value,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -400,57 +464,82 @@ class LiveRoomPage extends GetView<LiveRoomController> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.withAlpha(25),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 8,
+            color: Colors.black.withAlpha(12),
+            offset: const Offset(0, -2),
           ),
-        ),
+        ],
       ),
-      padding: EdgeInsets.only(bottom: AppStyle.bottomBarHeight),
+      padding: EdgeInsets.only(
+        bottom: AppStyle.bottomBarHeight,
+        top: 4,
+        left: 8,
+        right: 8,
+      ),
       child: Row(
         children: [
           Expanded(
             child: Obx(
-              () => controller.followed.value
-                  ? TextButton.icon(
-                      style: TextButton.styleFrom(
-                        textStyle: const TextStyle(fontSize: 14),
-                      ),
-                      onPressed: controller.removeFollowUser,
-                      icon: const Icon(Remix.heart_fill),
-                      label: const Text("取消关注"),
-                    )
-                  : TextButton.icon(
-                      style: TextButton.styleFrom(
-                        textStyle: const TextStyle(fontSize: 14),
-                      ),
-                      onPressed: controller.followUser,
-                      icon: const Icon(Remix.heart_line),
-                      label: const Text("关注"),
-                    ),
+              () => _buildBottomButton(
+                context,
+                icon: controller.followed.value ? Remix.heart_fill : Remix.heart_line,
+                label: controller.followed.value ? "已关注" : "关注",
+                color: controller.followed.value ? Colors.red : null,
+                onTap: controller.followed.value
+                    ? controller.removeFollowUser
+                    : controller.followUser,
+              ),
             ),
           ),
           Expanded(
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                textStyle: const TextStyle(fontSize: 14),
-              ),
-              onPressed: controller.refreshRoom,
-              icon: const Icon(Remix.refresh_line),
-              label: const Text("刷新"),
+            child: _buildBottomButton(
+              context,
+              icon: Remix.refresh_line,
+              label: "刷新",
+              onTap: controller.refreshRoom,
             ),
           ),
           Expanded(
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                textStyle: const TextStyle(fontSize: 14),
-              ),
-              onPressed: controller.share,
-              icon: const Icon(Remix.share_line),
-              label: const Text("分享"),
+            child: _buildBottomButton(
+              context,
+              icon: Remix.share_line,
+              label: "分享",
+              onTap: controller.share,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBottomButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: color ?? Theme.of(context).textTheme.bodySmall?.color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -173,7 +173,59 @@ Widget buildFullControls(
                       style: const TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ),
-                  AppStyle.hGap12,
+                  AppStyle.hGap8,
+                  // 横屏实时人数显示
+                  Obx(
+                    () => GestureDetector(
+                      onTap: controller.fetchRealtimeOnline,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withAlpha(180),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withAlpha(80),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            controller.isFetchingOnline.value
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Remix.user_line,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                            const SizedBox(width: 4),
+                            Text(
+                              Utils.onlineToString(
+                                controller.online.value,
+                                exactDisplay: AppSettingsController.instance.roomOnlineExactDisplay.value,
+                              ),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  AppStyle.hGap8,
                   IconButton(
                     onPressed: () {
                       controller.saveScreenshot();

@@ -103,6 +103,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var loadError = false.obs;
   String? error;
 
+  /// 直播间加载中（仅在播放器区域显示）
+  var isPlayerLoading = false.obs;
+
   // 开播时长状态变量
   var liveDuration = "00:00:00".obs;
   Timer? _liveDurationTimer;
@@ -297,7 +300,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 加载直播间信息
   void loadData() async {
     try {
-      SmartDialog.showLoading(msg: "");
+      isPlayerLoading.value = true;
       loadError.value = false;
       error = null;
       update();
@@ -361,7 +364,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       loadError.value = true;
       error = e.toString();
     } finally {
-      SmartDialog.dismiss(status: SmartStatus.loading);
+      isPlayerLoading.value = false;
       _douyinRetryCount = 0; // 重置重试计数
     }
   }
@@ -1253,6 +1256,27 @@ $error''');
         refreshOnlineCount();
       },
     );
+  }
+
+  /// 是否正在获取实时人数
+  var isFetchingOnline = false.obs;
+
+  /// 手动点击获取实时人数
+  void fetchRealtimeOnline() async {
+    if (isFetchingOnline.value) return;
+    try {
+      isFetchingOnline.value = true;
+      var roomDetail = await site.liveSite.getRoomDetail(roomId: roomId);
+      online.value = roomDetail.online;
+      _lastOnlineCount = roomDetail.online;
+      _suspiciousOnlineCount = null;
+      SmartDialog.showToast("当前人数: ${roomDetail.online}");
+    } catch (e) {
+      SmartDialog.showToast("获取人数失败");
+      Log.d("手动获取人数失败: $e");
+    } finally {
+      isFetchingOnline.value = false;
+    }
   }
 
   // 刷新直播间在线人数

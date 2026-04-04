@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_app/app/app_style.dart';
-import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/modules/search/search_controller.dart';
 import 'package:simple_live_app/modules/search/search_list_view.dart';
@@ -30,13 +29,8 @@ class SearchPage extends GetView<AppSearchController> {
                   onPressed: Get.back,
                   icon: const Icon(Icons.arrow_back),
                 ),
-                // 抖音不显示房间/主播选择器
                 Obx(
                   () {
-                    var currentSite = Sites.supportSites[controller.tabController.index];
-                    if (currentSite.id == Constant.kDouyin) {
-                      return const SizedBox.shrink();
-                    }
                     return DropdownButton<int>(
                       underline: const SizedBox(),
                       items: const [
@@ -99,15 +93,7 @@ class SearchPage extends GetView<AppSearchController> {
         physics: const NeverScrollableScrollPhysics(),
         controller: controller.tabController,
         children: Sites.supportSites
-            .map((e) => SearchListView(
-                      e.id,
-                    )
-                // (e) => e.id == Constant.kDouyin
-                //     ? const DouyinSearchView()
-                //     : SearchListView(
-                //         e.id,
-                //       ),
-                )
+            .map((e) => SearchListView(e.id))
             .toList(),
       ),
     );
