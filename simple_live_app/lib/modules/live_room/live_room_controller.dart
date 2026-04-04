@@ -1136,14 +1136,33 @@ $error''');
 
     if (state == AppLifecycleState.paused) {
       Log.d("进入后台");
-      //进入后台，关闭弹幕
-      danmakuController?.clear();
       isBackground = true;
+
+      // iOS性能优化：进入后台时暂停所有耗电操作
+
+      // 1. 关闭弹幕渲染
+      danmakuController?.clear();
+
+      // 2. 暂停所有定时器（防止后台持续唤醒CPU）
+      _liveDurationTimer?.cancel();
+      _liveDurationTimer = null;
+      _onlineRefreshTimer?.cancel();
+      _onlineRefreshTimer = null;
+
+      // 3. 关闭屏幕常亮（后台无需保持屏幕）
+      WakelockPlus.disable();
     } else
     //返回前台
     if (state == AppLifecycleState.resumed) {
       Log.d("返回前台");
       isBackground = false;
+
+      // 恢复定时器和屏幕常亮
+      if (liveStatus.value) {
+        WakelockPlus.enable();
+        startLiveDurationTimer();
+        startOnlineRefreshTimer();
+      }
     }
   }
 
