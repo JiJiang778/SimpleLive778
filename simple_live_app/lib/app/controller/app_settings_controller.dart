@@ -113,6 +113,9 @@ class AppSettingsController extends GetxController {
     roomOnlineRefreshEnable.value = LocalStorageService.instance
         .getValue(LocalStorageService.kRoomOnlineRefreshEnable, false);
 
+    overlayTabOrder.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kOverlayTabOrder, 0);
+
     styleColor.value = LocalStorageService.instance
         .getValue(LocalStorageService.kStyleColor, 0xff3498db);
 
@@ -491,6 +494,14 @@ class AppSettingsController extends GetxController {
     roomOnlineRefreshEnable.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kRoomOnlineRefreshEnable, e);
+  }
+
+  /// 全屏长按浮层标签页顺序（0=关注列表优先，1=观看记录优先）
+  var overlayTabOrder = 0.obs;
+  void setOverlayTabOrder(int e) {
+    overlayTabOrder.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kOverlayTabOrder, e);
   }
 
   var styleColor = 0xff3498db.obs;
