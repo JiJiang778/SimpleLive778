@@ -166,6 +166,7 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                     max: 60,
                     step: 1,
                     unit: "秒",
+                    enabled: controller.roomOnlineRefreshEnable.value,
                     onChanged: (e) {
                       controller.setRoomOnlineRefreshInterval(e);
                     },
