@@ -5,6 +5,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
+import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/models/db/history.dart';
@@ -36,6 +37,10 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
   late int _initialIndex;
   List<History> _historyList = [];
 
+  /// 直播状态缓存: id -> 0=查询中, 1=未开播, 2=直播中
+  final Map<String, int> _liveStatusMap = {};
+  bool _isCheckingStatus = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,13 +58,62 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
     if (!_tabController.indexIsChanging) {
       setState(() {});
       AppSettingsController.instance.setOverlayTabOrder(_tabController.index);
+      // 切换到记录标签时自动检查直播状态
+      if (_tabController.index == 1) {
+        _checkAllLiveStatus();
+      }
     }
   }
 
   void _loadHistory() {
-    setState(() {
-      _historyList = DBService.instance.getHistores();
-    });
+    _historyList = DBService.instance.getHistores();
+    _liveStatusMap.clear();
+    setState(() {});
+    // 如果当前在记录标签页，自动检查
+    if (_tabController.index == 1) {
+      _checkAllLiveStatus();
+    }
+  }
+
+  /// 批量异步查询所有观看记录的直播状态
+  Future<void> _checkAllLiveStatus() async {
+    if (_isCheckingStatus || _historyList.isEmpty) return;
+    _isCheckingStatus = true;
+
+    // 先将所有未查询的标记为查询中
+    for (var item in _historyList) {
+      if (!_liveStatusMap.containsKey(item.id)) {
+        _liveStatusMap[item.id] = 0;
+      }
+    }
+    if (mounted) setState(() {});
+
+    // 逐个查询，避免并发过多导致发烫
+    for (var item in _historyList) {
+      if (!mounted) break;
+      // 已经有结果的跳过（刷新时重新查）
+      var site = Sites.allSites[item.siteId];
+      if (site == null) {
+        _liveStatusMap[item.id] = 1;
+        continue;
+      }
+      try {
+        var isLiving =
+            await site.liveSite.getLiveStatus(roomId: item.roomId);
+        _liveStatusMap[item.id] = isLiving ? 2 : 1;
+      } catch (e) {
+        Log.d("检查观看记录直播状态失败 [${item.userName}]: $e");
+        _liveStatusMap[item.id] = 1; // 出错视为未开播
+      }
+      if (mounted) setState(() {});
+    }
+    _isCheckingStatus = false;
+  }
+
+  Future<void> _refreshHistoryStatus() async {
+    _liveStatusMap.clear();
+    _loadHistory();
+    await _checkAllLiveStatus();
   }
 
   Future<void> _clearAllHistory() async {
@@ -69,6 +123,7 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
     );
     if (!result) return;
     await DBService.instance.historyBox.clear();
+    _liveStatusMap.clear();
     _loadHistory();
     SmartDialog.showToast("已清空观看记录");
   }
@@ -76,6 +131,7 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
   Future<void> _deleteHistoryItem(History item) async {
     HapticFeedback.mediumImpact();
     await DBService.instance.historyBox.delete(item.id);
+    _liveStatusMap.remove(item.id);
     _loadHistory();
   }
 
@@ -85,6 +141,12 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
     _tabController.dispose();
     super.dispose();
   }
+
+  // ── 统一的直播状态配色 ──
+  static const Color _liveColor = Color(0xFF2ECC71);       // 翡翠绿
+  static const Color _liveBgColor = Color(0x192ECC71);     // 10%透明度
+  static const Color _offlineColor = Color(0xFF95A5A6);    // 银灰
+  static const Color _offlineBgColor = Color(0x1995A5A6);  // 10%透明度
 
   @override
   Widget build(BuildContext context) {
@@ -242,9 +304,7 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
       return _buildEmptyState("暂无观看记录", Remix.history_line);
     }
     return RefreshIndicator(
-      onRefresh: () async {
-        _loadHistory();
-      },
+      onRefresh: _refreshHistoryStatus,
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 4, bottom: 8),
         itemCount: _historyList.length,
@@ -255,13 +315,15 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
           bool isPlaying =
               widget.controller.rxSite.value.id == item.siteId &&
                   widget.controller.rxRoomId.value == item.roomId;
-          return _buildHistoryItem(item, site, isPlaying);
+          int liveStatus = _liveStatusMap[item.id] ?? -1;
+          return _buildHistoryItem(item, site, isPlaying, liveStatus);
         },
       ),
     );
   }
 
-  Widget _buildHistoryItem(History item, dynamic site, bool isPlaying) {
+  Widget _buildHistoryItem(
+      History item, dynamic site, bool isPlaying, int liveStatus) {
     final theme = Theme.of(context);
     return GestureDetector(
       onTap: () {
@@ -296,24 +358,47 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.only(left: 12, top: 10, bottom: 10, right: 4),
+          padding:
+              const EdgeInsets.only(left: 12, top: 10, bottom: 10, right: 4),
           child: Row(
             children: [
-              // Avatar
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.grey.withAlpha(40),
-                    width: 1.5,
+              // Avatar + live dot
+              Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.grey.withAlpha(40),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: NetImage(
+                      item.face,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                    ),
                   ),
-                ),
-                child: NetImage(
-                  item.face,
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                ),
+                  // 直播中绿色圆点
+                  if (liveStatus == 2)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _liveColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: theme.cardColor,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 12),
               // Info
@@ -346,18 +431,24 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
                             color: Colors.grey.shade500,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        // 直播状态标签
+                        _buildLiveStatusTag(liveStatus),
+                        const SizedBox(width: 6),
                         Icon(
                           Remix.time_line,
                           size: 11,
                           color: Colors.grey.shade400,
                         ),
                         const SizedBox(width: 2),
-                        Text(
-                          _formatTime(item.updateTime),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade500,
+                        Flexible(
+                          child: Text(
+                            _formatTime(item.updateTime),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                            ),
                           ),
                         ),
                       ],
@@ -413,6 +504,42 @@ class _FollowHistoryOverlayState extends State<FollowHistoryOverlay>
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建直播状态标签（统一风格）
+  Widget _buildLiveStatusTag(int liveStatus) {
+    if (liveStatus == 0) {
+      // 查询中 - 小loading
+      return Container(
+        margin: const EdgeInsets.only(left: 8),
+        width: 12,
+        height: 12,
+        child: const CircularProgressIndicator(
+          strokeWidth: 1.5,
+          color: Colors.grey,
+        ),
+      );
+    }
+    if (liveStatus == -1) {
+      return const SizedBox.shrink(); // 尚未开始查询
+    }
+    final bool isLive = liveStatus == 2;
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: isLive ? _liveBgColor : _offlineBgColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        isLive ? "直播中" : "未开播",
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: isLive ? _liveColor : _offlineColor,
         ),
       ),
     );

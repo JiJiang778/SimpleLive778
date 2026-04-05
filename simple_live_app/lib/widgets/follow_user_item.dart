@@ -86,7 +86,7 @@ class FollowUserItem extends StatelessWidget {
                               width: 14,
                               height: 14,
                               decoration: BoxDecoration(
-                                color: Colors.green,
+                                color: const Color(0xFF2ECC71),
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: Theme.of(context).cardColor,
@@ -176,6 +176,9 @@ class FollowUserItem extends StatelessWidget {
                             if (item.liveStatus.value == 0) {
                               return const SizedBox.shrink();
                             }
+                            final bool isLive = item.liveStatus.value == 2;
+                            const Color liveColor = Color(0xFF2ECC71);
+                            const Color offlineColor = Color(0xFF95A5A6);
                             return Container(
                               margin: const EdgeInsets.only(left: 8),
                               padding: const EdgeInsets.symmetric(
@@ -183,9 +186,9 @@ class FollowUserItem extends StatelessWidget {
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: item.liveStatus.value == 2
-                                    ? Colors.green.withAlpha(25)
-                                    : Colors.grey.withAlpha(25),
+                                color: isLive
+                                    ? const Color(0x192ECC71)
+                                    : const Color(0x1995A5A6),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -193,9 +196,7 @@ class FollowUserItem extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
-                                  color: item.liveStatus.value == 2
-                                      ? Colors.green
-                                      : Colors.grey,
+                                  color: isLive ? liveColor : offlineColor,
                                 ),
                               ),
                             );
