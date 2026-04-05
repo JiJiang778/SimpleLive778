@@ -12,6 +12,7 @@ class SettingsNumber extends StatelessWidget {
   final int max;
   final String? displayValue;
   final Function(int)? onChanged;
+  final bool enabled;
   const SettingsNumber(
       {required this.title,
       required this.value,
@@ -22,82 +23,90 @@ class SettingsNumber extends StatelessWidget {
       this.min = 0,
       this.unit = '',
       this.displayValue,
+      this.enabled = true,
       Key? key})
       : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      visualDensity: VisualDensity.compact,
-      title: Text(
-        title,
-        style: Get.textTheme.bodyLarge,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: AppStyle.radius8,
-      ),
-      subtitle: subtitle == null
-          ? null
-          : Text(
-              subtitle!,
-              style: Get.textTheme.bodySmall!.copyWith(color: Colors.grey),
+    final double opacity = enabled ? 1.0 : 0.4;
+    return Opacity(
+      opacity: opacity,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: ListTile(
+          visualDensity: VisualDensity.compact,
+          title: Text(
+            title,
+            style: Get.textTheme.bodyLarge,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: AppStyle.radius8,
+          ),
+          subtitle: subtitle == null
+              ? null
+              : Text(
+                  subtitle!,
+                  style: Get.textTheme.bodySmall!.copyWith(color: Colors.grey),
+                ),
+          contentPadding: AppStyle.edgeInsetsL16.copyWith(right: 12),
+          trailing: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.withAlpha(25),
+              borderRadius: AppStyle.radius24,
             ),
-      contentPadding: AppStyle.edgeInsetsL16.copyWith(right: 12),
-      trailing: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey.withAlpha(25),
-          borderRadius: AppStyle.radius24,
+            height: 36,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  padding: AppStyle.edgeInsetsA4,
+                  constraints: const BoxConstraints(
+                    minHeight: 32,
+                  ),
+                  onPressed: () {
+                    int newValue = value - step;
+                    if (newValue < min) {
+                      newValue = min;
+                    }
+                    onChanged?.call(newValue);
+                  },
+                  icon: Icon(
+                    Icons.remove,
+                    color: Get.textTheme.bodyMedium!.color!.withAlpha(150),
+                  ),
+                ),
+                Text(
+                  displayValue ?? "$value$unit",
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium!
+                      .copyWith(color: Colors.grey),
+                ),
+                IconButton(
+                  padding: AppStyle.edgeInsetsA4,
+                  constraints: const BoxConstraints(
+                    minHeight: 32,
+                  ),
+                  onPressed: () {
+                    int newValue = value + step;
+                    if (newValue > max) {
+                      newValue = max;
+                    }
+                    onChanged?.call(newValue);
+                  },
+                  icon: Icon(
+                    Icons.add,
+                    color: Get.textTheme.bodyMedium!.color!.withAlpha(150),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          onTap: () => openSilder(context),
         ),
-        height: 36,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              padding: AppStyle.edgeInsetsA4,
-              constraints: const BoxConstraints(
-                minHeight: 32,
-              ),
-              onPressed: () {
-                int newValue = value - step;
-                if (newValue < min) {
-                  newValue = min;
-                }
-                onChanged?.call(newValue);
-              },
-              icon: Icon(
-                Icons.remove,
-                color: Get.textTheme.bodyMedium!.color!.withAlpha(150),
-              ),
-            ),
-            Text(
-              displayValue ?? "$value$unit",
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium!
-                  .copyWith(color: Colors.grey),
-            ),
-            IconButton(
-              padding: AppStyle.edgeInsetsA4,
-              constraints: const BoxConstraints(
-                minHeight: 32,
-              ),
-              onPressed: () {
-                int newValue = value + step;
-                if (newValue > max) {
-                  newValue = max;
-                }
-                onChanged?.call(newValue);
-              },
-              icon: Icon(
-                Icons.add,
-                color: Get.textTheme.bodyMedium!.color!.withAlpha(150),
-              ),
-            ),
-          ],
-        ),
       ),
-      onTap: () => openSilder(context),
     );
   }
 
