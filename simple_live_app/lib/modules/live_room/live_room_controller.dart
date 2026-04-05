@@ -27,6 +27,7 @@ import 'package:simple_live_app/widgets/follow_user_item.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:simple_live_app/widgets/follow_history_overlay.dart';
 
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   final Site pSite;
@@ -956,47 +957,19 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   void showFollowUserSheet() {
-    Utils.showBottomSheet(
-      title: "关注列表",
-      child: Obx(
-        () => Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: FollowService.instance.loadData,
-              child: ListView.builder(
-                itemCount: FollowService.instance.liveList.length,
-                itemBuilder: (_, i) {
-                  var item = FollowService.instance.liveList[i];
-                  return Obx(
-                    () => FollowUserItem(
-                      item: item,
-                      playing: rxSite.value.id == item.siteId &&
-                          rxRoomId.value == item.roomId,
-                      onTap: () {
-                        Get.back();
-                        resetRoom(
-                          Sites.allSites[item.siteId]!,
-                          item.roomId,
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (Platform.isLinux || Platform.isWindows || Platform.isMacOS)
-              Positioned(
-                right: 12,
-                bottom: 12,
-                child: Obx(
-                  () => DesktopRefreshButton(
-                    refreshing: FollowService.instance.updating.value,
-                    onPressed: FollowService.instance.loadData,
-                  ),
-                ),
-              ),
-          ],
+    showModalBottomSheet(
+      context: Get.context!,
+      constraints: const BoxConstraints(maxWidth: 600),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
         ),
+      ),
+      builder: (_) => FollowHistoryOverlay(
+        controller: this,
+        isBottomSheet: true,
+        onDismiss: () => Get.back(),
       ),
     );
   }

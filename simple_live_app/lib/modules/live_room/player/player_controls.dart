@@ -1,21 +1,16 @@
 import 'dart:io';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:ns_danmaku/ns_danmaku.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
-import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_app/modules/settings/danmu_settings_page.dart';
-import 'package:simple_live_app/services/follow_service.dart';
-import 'package:simple_live_app/services/db_service.dart';
-import 'package:simple_live_app/models/db/follow_user.dart';
-import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
-import 'package:simple_live_app/widgets/follow_user_item.dart';
+import 'package:simple_live_app/widgets/follow_history_overlay.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:simple_live_app/widgets/superchat_card.dart';
 import 'dart:async';
@@ -953,55 +948,12 @@ void showFollowUser(LiveRoomController controller) {
     return;
   }
 
-  Utils.showRightDialog(
-    title: "关注列表",
+  Utils.showRightDialogRaw(
     width: 400,
     useSystem: true,
-    child: Obx(
-      () => Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: FollowService.instance.loadData,
-            child: ListView.builder(
-              itemCount: FollowService.instance.liveList.length,
-              itemBuilder: (_, i) {
-                var item = FollowService.instance.liveList[i];
-                return Obx(
-                  () => FollowUserItem(
-                    item: item,
-                    playing: controller.rxSite.value.id == item.siteId &&
-                        controller.rxRoomId.value == item.roomId,
-                    onTap: () {
-                      Utils.hideRightDialog();
-                      controller.resetRoom(
-                        Sites.allSites[item.siteId]!,
-                        item.roomId,
-                      );
-                    },
-                    onLongPress: (Platform.isAndroid || Platform.isIOS) ? () {
-                      showFollowUserOptions(item, controller);
-                    } : null,
-                    onSecondaryTap: (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ? () {
-                      showFollowUserOptions(item, controller);
-                    } : null,
-                  ),
-                );
-              },
-            ),
-          ),
-          if (Platform.isLinux || Platform.isWindows || Platform.isMacOS)
-            Positioned(
-              right: 12,
-              bottom: 12,
-              child: Obx(
-                () => DesktopRefreshButton(
-                  refreshing: FollowService.instance.updating.value,
-                  onPressed: FollowService.instance.loadData,
-                ),
-              ),
-            ),
-        ],
-      ),
+    child: FollowHistoryOverlay(
+      controller: controller,
+      onDismiss: () => Utils.hideRightDialog(),
     ),
   );
 }
@@ -1152,79 +1104,4 @@ class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
   }
 }
 
-void showFollowUserOptions(FollowUser item, LiveRoomController controller) {
-  Get.dialog(
-    Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 320),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                item.userName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(
-                item.pinned ? Remix.unpin_line : Remix.pushpin_line,
-                color: item.pinned ? Colors.orange : null,
-              ),
-              title: Text(item.pinned ? "取消置顶" : "置顶"),
-              onTap: () async {
-                HapticFeedback.mediumImpact();
-                Get.back();
-                if (item.pinned) {
-                  item.pinned = false;
-                  item.pinnedTime = null;
-                } else {
-                  item.pinned = true;
-                  item.pinnedTime = DateTime.now();
-                }
-                await DBService.instance.addFollow(item);
-                // 只更新本地排序，不重新请求网络
-                FollowService.instance.filterData();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Remix.dislike_line, color: Colors.red),
-              title: const Text(
-                "取消关注",
-                style: TextStyle(color: Colors.red),
-              ),
-              onTap: () async {
-                HapticFeedback.mediumImpact();
-                Get.back();
-                var result = await Utils.showAlertDialog(
-                  "确定要取消关注${item.userName}吗?",
-                  title: "取消关注",
-                );
-                if (!result) {
-                  return;
-                }
-                await DBService.instance.followBox.delete(item.id);
-                // 只更新本地排序，不重新请求网络
-                FollowService.instance.filterData();
-                // 如果取消关注的是当前正在播放的直播间，更新状态
-                if (controller.rxSite.value.id == item.siteId &&
-                    controller.rxRoomId.value == item.roomId) {
-                  controller.followed.value = false;
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
+// Follow user options are now handled inside FollowHistoryOverlay
