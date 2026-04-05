@@ -172,6 +172,9 @@ class LocalStorageService extends GetxService {
   /// 虎牙搜索主播按开播状态排序
   static const String kHuyaSearchAnchorSortByLive = "HuyaSearchAnchorSortByLive";
 
+  /// 全屏长按浮层标签页顺序（0=关注列表优先，1=观看记录优先）
+  static const String kOverlayTabOrder = "OverlayTabOrder";
+
   /// WebDAV_服务器地址
   static const String kWebDAVUri = "WebDAVUri";
 
