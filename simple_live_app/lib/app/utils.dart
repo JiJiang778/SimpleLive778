@@ -182,6 +182,47 @@ class Utils {
     SmartDialog.dismiss(status: SmartStatus.allCustom);
   }
 
+  static void showRightDialogRaw({
+    required Widget child,
+    double width = 320,
+    bool useSystem = false,
+  }) {
+    SmartDialog.show(
+      alignment: Alignment.topRight,
+      animationBuilder: (controller, child, animationParam) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(controller.view),
+          child: child,
+        );
+      },
+      useSystem: useSystem,
+      maskColor: Colors.transparent,
+      animationTime: const Duration(milliseconds: 200),
+      builder: (context) => Container(
+        width: width + MediaQuery.of(context).padding.right,
+        padding: EdgeInsets.only(right: MediaQuery.of(context).padding.right),
+        decoration: BoxDecoration(
+          color: Get.theme.cardColor,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            bottomLeft: Radius.circular(4),
+          ),
+        ),
+        child: SafeArea(
+          left: false,
+          right: false,
+          child: MediaQuery(
+            data: const MediaQueryData(padding: EdgeInsets.zero),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
   static Future showBottomSheet({
     required String title,
     required Widget child,
